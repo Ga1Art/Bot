@@ -1,0 +1,33 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local database and runtime artifacts
+*.sqlite3
+*.db
+*.log
+
+# IDE and OS files
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+
+# Google service account credentials
+secrets/
+*service-account*.json
+*credentials*.json
+creds/
+env.server
+
+# Build and packaging
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,296 @@
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session
+
+from app.core.config import get_settings
+from app.core.time import moscow_tomorrow_start_naive
+from app.collectors.tenders.common import has_closed_status
+from app.db.models import Lead
+from app.normalizers.region import TARGET_EUROPEAN_RUSSIA_REGIONS
+from app.schemas.collector import LeadCreate
+
+
+COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES = ("b2b_center", "fabrikant", "rostender", "synapse")
+
+
+class LeadRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def _hot_leads_filters(self):
+        settings = get_settings()
+        target_region_filter = or_(
+            Lead.region.in_(settings.priority_regions),
+            *[Lead.region.ilike(f"%{region}%") for region in TARGET_EUROPEAN_RUSSIA_REGIONS],
+        )
+        return (
+            Lead.status.in_(("new", "in_work")),
+            Lead.priority.in_(("A", "B")),
+            target_region_filter,
+            self._active_deadline_filter(),
+        )
+
+    def _active_deadline_filter(self):
+        return or_(Lead.deadline_at.is_(None), Lead.deadline_at >= moscow_tomorrow_start_naive())
+
+    def list_leads(
+        self,
+        status: str | None = None,
+        priority: str | None = None,
+        region: str | None = None,
+        source_type: str | None = None,
+        hot_only: bool = False,
+        limit: int | None = None,
+    ) -> list[Lead]:
+        stmt = select(Lead)
+        if status:
+            stmt = stmt.where(Lead.status == status)
+            if status in ("new", "in_work"):
+                stmt = stmt.where(self._active_deadline_filter())
+        if priority:
+            stmt = stmt.where(Lead.priority == priority)
+        if region:
+            stmt = stmt.where(Lead.region == region)
+        if source_type:
+            stmt = stmt.where(Lead.source_type == source_type)
+        if hot_only:
+            stmt = (
+                stmt.where(*self._hot_leads_filters())
+            )
+        if hot_only:
+            stmt = stmt.order_by(Lead.relevance_score.desc(), Lead.created_at.desc())
+        else:
+            stmt = stmt.order_by(Lead.created_at.desc())
+        if limit:
+            stmt = stmt.limit(limit)
+        return list(self.db.scalars(stmt))
+
+    def get_by_id(self, lead_id: str) -> Lead | None:
+        return self.db.get(Lead, lead_id)
+
+    def get_many_by_ids(self, lead_ids: list[str]) -> list[Lead]:
+        if not lead_ids:
+            return []
+
+        stmt = select(Lead).where(Lead.id.in_(lead_ids))
+        leads = list(self.db.scalars(stmt))
+        order = {lead_id: index for index, lead_id in enumerate(lead_ids)}
+        leads.sort(key=lambda item: order.get(str(item.id), len(order)))
+        return leads
+
+    def get_unnotified_priority_leads(self) -> list[Lead]:
+        stmt = (
+            select(Lead)
+            .where(*self._hot_leads_filters())
+            .where(Lead.notified_at.is_(None))
+            .order_by(Lead.created_at.asc())
+        )
+        return list(self.db.scalars(stmt))
+
+    def get_review_queue(self, limit: int = 20) -> list[Lead]:
+        stmt = (
+            select(Lead)
+            .where(Lead.status.in_(("new", "in_work")))
+            .where(self._active_deadline_filter())
+            .order_by(Lead.priority.asc(), Lead.relevance_score.desc(), Lead.created_at.desc())
+            .limit(limit)
+        )
+        return list(self.db.scalars(stmt))
+
+    def expire_stale_open_leads(self) -> int:
+        stale_leads = list(
+            self.db.scalars(
+                select(Lead)
+                .where(Lead.status.in_(("new", "in_work")))
+                .where(
+                    or_(
+                        Lead.deadline_at < moscow_tomorrow_start_naive(),
+                        Lead.source_name.in_(COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES) & Lead.deadline_at.is_(None),
+                    )
+                )
+            )
+        )
+        stale_leads.extend(self._closed_status_open_leads())
+
+        seen_ids: set[str] = set()
+        unique_stale_leads: list[Lead] = []
+        for lead in stale_leads:
+            lead_id = str(lead.id)
+            if lead_id in seen_ids:
+                continue
+            seen_ids.add(lead_id)
+            unique_stale_leads.append(lead)
+
+        for lead in unique_stale_leads:
+            lead.status = "context"
+        return len(unique_stale_leads)
+
+    def _closed_status_open_leads(self) -> list[Lead]:
+        commercial_open_leads = list(
+            self.db.scalars(
+                select(Lead)
+                .where(Lead.status.in_(("new", "in_work")))
+                .where(Lead.source_name.in_(COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES))
+            )
+        )
+        closed_leads: list[Lead] = []
+        for lead in commercial_open_leads:
+            raw_block = ""
+            if isinstance(lead.raw_payload, dict):
+                raw_block = str(lead.raw_payload.get("block") or "")
+            if has_closed_status(f"{lead.title or ''} {lead.description or ''} {raw_block}"):
+                closed_leads.append(lead)
+        return closed_leads
+
+    def get_hot_prospects(self, limit: int = 20) -> list[Lead]:
+        stmt = (
+            select(Lead)
+            .where(*self._hot_leads_filters())
+            .order_by(Lead.relevance_score.desc(), Lead.created_at.desc())
+            .limit(limit)
+        )
+        return list(self.db.scalars(stmt))
+
+    def get_by_source_external_id(self, source_name: str, external_id: str) -> Lead | None:
+        stmt = select(Lead).where(
+            Lead.source_name == source_name,
+            Lead.external_id == external_id,
+        )
+        return self.db.scalar(stmt)
+
+    def upsert(self, payload: LeadCreate, relevance_score: int, priority: str) -> tuple[Lead, bool]:
+        lead = self.get_by_source_external_id(payload.source_name, payload.external_id)
+        created = lead is None
+
+        if lead is None:
+            lead = Lead(
+                source_type=payload.source_type,
+                source_name=payload.source_name,
+                external_id=payload.external_id,
+                title=payload.title,
+                description=payload.description,
+                url=payload.url,
+                published_at=payload.published_at,
+                deadline_at=payload.deadline_at,
+                city=payload.city,
+                region=payload.region,
+                budget_min=payload.budget_min,
+                budget_max=payload.budget_max,
+                currency=payload.currency,
+                customer_name=payload.customer_name,
+                event_name=payload.event_name,
+                venue_name=payload.venue_name,
+                keywords_matched=payload.keywords_matched,
+                relevance_score=relevance_score,
+                priority=priority,
+                raw_payload=payload.raw_payload,
+            )
+            self.db.add(lead)
+            return lead, created
+
+        lead.title = payload.title
+        lead.description = payload.description
+        lead.url = payload.url
+        lead.published_at = payload.published_at
+        lead.deadline_at = payload.deadline_at
+        lead.city = payload.city
+        lead.region = payload.region
+        lead.budget_min = payload.budget_min
+        lead.budget_max = payload.budget_max
+        lead.currency = payload.currency
+        lead.customer_name = payload.customer_name
+        lead.event_name = payload.event_name
+        lead.venue_name = payload.venue_name
+        lead.keywords_matched = payload.keywords_matched
+        lead.relevance_score = relevance_score
+        lead.priority = priority
+        lead.raw_payload = payload.raw_payload
+        return lead, created
+
+    def daily_counts(self) -> tuple[int, dict[str, int], dict[str, int]]:
+        total = self.db.scalar(select(func.count()).select_from(Lead)) or 0
+        priority_rows = self.db.execute(select(Lead.priority, func.count()).group_by(Lead.priority)).all()
+        status_rows = self.db.execute(select(Lead.status, func.count()).group_by(Lead.status)).all()
+        return total, dict(priority_rows), dict(status_rows)
+
+    def hot_counts(
+        self,
+    ) -> tuple[
+        int,
+        dict[str, int],
+        dict[str, int],
+        dict[str, int],
+        dict[str, int],
+        dict[str, int],
+        dict[str, int],
+        list[Lead],
+    ]:
+        base_stmt = select(Lead).where(*self._hot_leads_filters())
+
+        total = self.db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
+
+        priority_rows = self.db.execute(
+            select(Lead.priority, func.count())
+            .where(*self._hot_leads_filters())
+            .group_by(Lead.priority)
+        ).all()
+
+        status_rows = self.db.execute(
+            select(Lead.status, func.count())
+            .where(*self._hot_leads_filters())
+            .group_by(Lead.status)
+        ).all()
+
+        region_rows = self.db.execute(
+            select(Lead.region, func.count())
+            .where(*self._hot_leads_filters())
+            .group_by(Lead.region)
+            .order_by(func.count().desc(), Lead.region.asc())
+        ).all()
+
+        source_rows = self.db.execute(
+            select(Lead.source_name, func.count())
+            .where(*self._hot_leads_filters())
+            .group_by(Lead.source_name)
+            .order_by(func.count().desc(), Lead.source_name.asc())
+        ).all()
+
+        customer_rows = self.db.execute(
+            select(Lead.customer_name, func.count())
+            .where(*self._hot_leads_filters())
+            .where(Lead.customer_name.is_not(None))
+            .where(Lead.customer_name != "")
+            .group_by(Lead.customer_name)
+            .order_by(func.count().desc(), Lead.customer_name.asc())
+            .limit(10)
+        ).all()
+
+        event_rows = self.db.execute(
+            select(Lead.event_name, func.count())
+            .where(*self._hot_leads_filters())
+            .where(Lead.event_name.is_not(None))
+            .where(Lead.event_name != "")
+            .group_by(Lead.event_name)
+            .order_by(func.count().desc(), Lead.event_name.asc())
+            .limit(10)
+        ).all()
+
+        deadline_rows = list(
+            self.db.scalars(
+                select(Lead)
+                .where(*self._hot_leads_filters())
+                .where(Lead.deadline_at.is_not(None))
+                .order_by(Lead.deadline_at.asc(), Lead.relevance_score.desc(), Lead.created_at.desc())
+                .limit(10)
+            )
+        )
+
+        return (
+            total,
+            dict(priority_rows),
+            dict(status_rows),
+            dict(region_rows),
+            dict(source_rows),
+            dict(customer_rows),
+            dict(event_rows),
+            deadline_rows,
+        )

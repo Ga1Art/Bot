@@ -9,7 +9,7 @@ from app.normalizers.region import TARGET_EUROPEAN_RUSSIA_REGIONS
 from app.schemas.collector import LeadCreate
 
 
-COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES = ("b2b_center", "fabrikant", "rostender", "synapse")
+COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES = ("b2b_center", "bidzaar", "fabrikant", "rostender", "synapse")
 
 
 class LeadRepository:
@@ -157,7 +157,22 @@ class LeadRepository:
         )
         return self.db.scalar(stmt)
 
-    def upsert(self, payload: LeadCreate, relevance_score: int, priority: str) -> tuple[Lead, bool]:
+    def upsert(
+        self,
+        payload: LeadCreate,
+        relevance_score: int,
+        priority: str,
+        base_relevance_score: int | None = None,
+        learned_score_adjustment: int = 0,
+        learned_reason: str | None = None,
+        ai_score: int | None = None,
+        ai_reason: str | None = None,
+        ai_recommended_action: str | None = None,
+        ai_tags: list[str] | None = None,
+        ai_risk_tags: list[str] | None = None,
+        ai_model: str | None = None,
+        ai_analyzed_at=None,
+    ) -> tuple[Lead, bool]:
         lead = self.get_by_source_external_id(payload.source_name, payload.external_id)
         created = lead is None
 
@@ -182,6 +197,16 @@ class LeadRepository:
                 keywords_matched=payload.keywords_matched,
                 relevance_score=relevance_score,
                 priority=priority,
+                base_relevance_score=base_relevance_score,
+                learned_score_adjustment=learned_score_adjustment,
+                learned_reason=learned_reason,
+                ai_score=ai_score,
+                ai_reason=ai_reason,
+                ai_recommended_action=ai_recommended_action,
+                ai_tags=ai_tags,
+                ai_risk_tags=ai_risk_tags,
+                ai_model=ai_model,
+                ai_analyzed_at=ai_analyzed_at,
                 raw_payload=payload.raw_payload,
             )
             self.db.add(lead)
@@ -203,6 +228,16 @@ class LeadRepository:
         lead.keywords_matched = payload.keywords_matched
         lead.relevance_score = relevance_score
         lead.priority = priority
+        lead.base_relevance_score = base_relevance_score
+        lead.learned_score_adjustment = learned_score_adjustment
+        lead.learned_reason = learned_reason
+        lead.ai_score = ai_score
+        lead.ai_reason = ai_reason
+        lead.ai_recommended_action = ai_recommended_action
+        lead.ai_tags = ai_tags
+        lead.ai_risk_tags = ai_risk_tags
+        lead.ai_model = ai_model
+        lead.ai_analyzed_at = ai_analyzed_at
         lead.raw_payload = payload.raw_payload
         return lead, created
 

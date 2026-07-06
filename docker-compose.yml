@@ -95,5 +95,31 @@ services:
     profiles:
       - tools
 
+  rescore:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://lead_radar:lead_radar@db:5432/lead_radar
+    command: ["python", "-m", "app.scripts.rescore_leads"]
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  ai_analyzer:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://lead_radar:lead_radar@db:5432/lead_radar
+    command: ["python", "-m", "app.scripts.analyze_ai_leads"]
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - tools
+
 volumes:
   postgres_data:

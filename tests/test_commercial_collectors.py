@@ -1,4 +1,5 @@
 from app.collectors.tenders.b2b_center import B2BCenterCollector
+from app.collectors.tenders.bidzaar import BidzaarCollector
 from app.collectors.tenders.fabrikant import FabrikantCollector
 from app.collectors.tenders.rostender import RostenderCollector
 from app.collectors.tenders.synapse import SynapseCollector
@@ -183,6 +184,75 @@ def test_b2b_center_parse_html_keeps_tomorrow_deadline() -> None:
 
     assert len(items) == 1
     assert items[0].external_id == "4498504"
+
+
+def test_bidzaar_parse_payload_extracts_order() -> None:
+    tomorrow = moscow_tomorrow_start_naive().strftime("%Y-%m-%d")
+    payload = {
+        "items": [
+            {
+                "id": "019f220e-abaa-749e-9dbc-34cc87991421",
+                "number": "348-878",
+                "name": "Оказание услуг по оформлению выставочных зон на выездных и спортивных мероприятиях",
+                "companyName": "НИКАМЕД",
+                "publishDate": "2026-07-02T09:44:31.995436Z",
+                "acceptanceEndDate": f"{tomorrow}T09:00:00Z",
+                "procedureType": 1,
+                "deliveryAddresses": [
+                    {
+                        "city": "Павловская Слобода",
+                        "region": "Московская обл",
+                        "comment": "Склад заказчика",
+                    }
+                ],
+            }
+        ],
+        "totalCount": 1,
+    }
+
+    items = BidzaarCollector(keywords=["выставочный стенд"]).parse_payload(payload, "выставочный стенд")
+
+    assert len(items) == 1
+    assert items[0].source_name == "bidzaar"
+    assert items[0].external_id == "019f220e-abaa-749e-9dbc-34cc87991421"
+    assert "оформлению выставочных зон" in items[0].title
+    assert items[0].customer_name == "НИКАМЕД"
+    assert items[0].city == "Павловская Слобода"
+    assert items[0].region == "Московская обл"
+    assert items[0].published_at is not None
+    assert items[0].deadline_at is not None
+
+
+def test_bidzaar_parse_payload_skips_sales_and_today_deadline() -> None:
+    today = moscow_now_naive().strftime("%Y-%m-%d")
+    tomorrow = moscow_tomorrow_start_naive().strftime("%Y-%m-%d")
+    payload = {
+        "items": [
+            {
+                "id": "sale-order",
+                "number": "349-797",
+                "name": "Изготовление выставочного стенда",
+                "companyName": "Тест",
+                "acceptanceEndDate": f"{tomorrow}T09:00:00Z",
+                "procedureType": 2,
+                "deliveryAddresses": [{"city": "Москва", "region": "Москва"}],
+            },
+            {
+                "id": "today-order",
+                "number": "349-798",
+                "name": "Изготовление выставочного стенда",
+                "companyName": "Тест",
+                "acceptanceEndDate": f"{today}T20:59:00Z",
+                "procedureType": 1,
+                "deliveryAddresses": [{"city": "Москва", "region": "Москва"}],
+            },
+        ],
+        "totalCount": 2,
+    }
+
+    items = BidzaarCollector(keywords=["выставочный стенд"]).parse_payload(payload, "выставочный стенд")
+
+    assert items == []
 
 
 def test_rostender_parse_html_extracts_order() -> None:

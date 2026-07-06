@@ -95,9 +95,16 @@ Optional values to review before production use:
 
 - `APP_HOST`: keep `127.0.0.1` for local-only access; use `0.0.0.0` only when the API must be reachable from other machines
 - `APP_PORT`: default is `8010`
+- `ENABLE_FEEDBACK_LEARNING`: enables score nudges from manager feedback; works without external AI
+- `ENABLE_AI_SCORING`: enables LLM scoring and explanations; keep `false` until `GEMINI_API_KEY` is filled
+- `AI_PROVIDER`: default is `gemini`
+- `GEMINI_API_KEY`: Google AI Studio API key for optional AI lead analysis
+- `GEMINI_MODEL`: default is `gemini-2.5-flash`
+- `AI_DAILY_ANALYSIS_LIMIT`: max active leads analyzed by AI per scheduled run
+- `AI_ANALYSIS_HOUR` / `AI_ANALYSIS_MINUTE`: daily AI analysis schedule in Moscow time
 - `PRIORITY_REGIONS`: default is `Москва,Московская область`
 - `ENABLE_EXPOCENTR_COLLECTOR`: disabled by default until the source is validated in your environment
-- `ENABLE_B2B_CENTER_COLLECTOR`, `ENABLE_FABRIKANT_COLLECTOR`, `ENABLE_ROSTENDER_COLLECTOR`, `ENABLE_SYNAPSE_COLLECTOR`: enabled by default as real order/tender sources
+- `ENABLE_B2B_CENTER_COLLECTOR`, `ENABLE_BIDZAAR_COLLECTOR`, `ENABLE_FABRIKANT_COLLECTOR`, `ENABLE_ROSTENDER_COLLECTOR`, `ENABLE_SYNAPSE_COLLECTOR`: enabled by default as real order/tender sources
 - `ENABLE_EIS_COLLECTOR`: optional public procurement source; disable it if `zakupki.gov.ru` fails on your network
 - `ENABLE_CROCUS_COLLECTOR` and `ENABLE_EXPONET_CITY_COLLECTORS`: disabled by default because they are event calendars, not customer orders
 
@@ -113,6 +120,12 @@ Recalculate scores after changing `.env` scoring settings:
 
 ```powershell
 .\run.ps1 -Action rescore
+```
+
+Run optional AI analysis for active leads:
+
+```powershell
+.\run.ps1 -Action analyzeai
 ```
 
 Sync the current queue to Google Sheets:
@@ -140,6 +153,7 @@ Use the root script [run.ps1](/abs/path/c:/Users/galee/New%20good%20project/run.
 .\run.ps1 -Action collect
 .\run.ps1 -Action rescore
 .\run.ps1 -Action previewscore
+.\run.ps1 -Action analyzeai
 .\run.ps1 -Action syncsheets
 .\run.ps1 -Action synchot
 .\run.ps1 -Action setupsheets
@@ -181,14 +195,26 @@ Typical workflow:
 
 If there are too many priority `A` leads, first lower `SCORING_WHITELIST_WEIGHT` or raise `SCORING_PRIORITY_A_THRESHOLD`.
 
+## Feedback And AI Layer
+
+The base scoring rules remain the source of truth. Manager feedback and AI only add bounded adjustments on top of the base score.
+
+- Feedback learning is enabled by `ENABLE_FEEDBACK_LEARNING=true` and does not require external services.
+- Telegram lead buttons `Подходит`, `Не профиль`, `Далеко`, `Бюджет`, `Дедлайн`, `Дубль`, `Другое` are saved as training signals.
+- `rescore` recalculates existing leads using current scoring settings and accumulated feedback.
+- Optional AI scoring is enabled only when `ENABLE_AI_SCORING=true` and `GEMINI_API_KEY` are set.
+- AI analysis stores `ai_score`, explanation, tags, risks, and a recommended action, but it is capped by `AI_SCORE_WEIGHT` so it cannot fully override rule-based scoring.
+- The scheduler runs optional AI analysis once per day at `AI_ANALYSIS_HOUR:AI_ANALYSIS_MINUTE`; if AI is disabled, the job exits immediately.
+
 ## First build targets
 
 - Alembic migrations are included
 - Event calendar collectors are available but disabled by default.
-- Active order collectors target B2B-Center, Fabrikant, Rostender, Synapse, and optionally EIS on `zakupki.gov.ru`
+- Active order collectors target B2B-Center, Bidzaar, Fabrikant, Rostender, Synapse, and optionally EIS on `zakupki.gov.ru`
 - New `A/B` leads are sent to Telegram once
 - Scheduler runs collectors every hour at minute `15`
 - Scheduler syncs Google Sheets every hour at minute `25` when configured
+- Scheduler runs optional AI analysis once per day when configured
 - `ENABLE_EIS_COLLECTOR=false` is recommended on networks where `zakupki.gov.ru` fails at TLS level
 - API queue endpoint: `GET /leads/queue`
 - API hot-only filter: `GET /leads?hot_only=true`
@@ -211,3 +237,4 @@ If there are too many priority `A` leads, first lower `SCORING_WHITELIST_WEIGHT`
 - Bot command `/syncsheets` pushes the current queue to Google Sheets
 - Bot command `/synchot` pushes hot prospects to Google Sheets
 - Bot shows a persistent Telegram button menu for the same daily actions: new leads, queue, hot leads, my leads, deadlines, summary, CSV export, and Google Sheets sync.
+- Bot lead cards include feedback buttons and optional `AI-анализ`.

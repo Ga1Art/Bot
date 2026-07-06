@@ -4,6 +4,7 @@ from app.collectors.events.crocus_expo import CrocusExpoCollector
 from app.collectors.events.exponet_city import ExponetCityCollector
 from app.collectors.events.expocentr import ExpocentrCollector
 from app.collectors.tenders.b2b_center import B2BCenterCollector
+from app.collectors.tenders.bidzaar import BidzaarCollector
 from app.collectors.tenders.eis import EisCollector
 from app.collectors.tenders.fabrikant import FabrikantCollector
 from app.collectors.tenders.rostender import RostenderCollector
@@ -49,6 +50,8 @@ class RunnerService:
             self.collectors.append(ExpocentrCollector())
         if settings.enable_b2b_center_collector:
             self.collectors.append(B2BCenterCollector())
+        if settings.enable_bidzaar_collector:
+            self.collectors.append(BidzaarCollector())
         if settings.enable_fabrikant_collector:
             self.collectors.append(FabrikantCollector())
         if settings.enable_rostender_collector:

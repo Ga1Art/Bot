@@ -48,8 +48,21 @@ def lead_actions_keyboard(lead_id: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton("В работу", callback_data=f"in_work:{lead_id}"),
-                InlineKeyboardButton("Отклонить", callback_data=f"rejected:{lead_id}"),
+                InlineKeyboardButton("Подходит", callback_data=f"accepted:{lead_id}"),
                 InlineKeyboardButton("Позже", callback_data=f"new:{lead_id}"),
+            ],
+            [
+                InlineKeyboardButton("AI-анализ", callback_data=f"ai:{lead_id}"),
+                InlineKeyboardButton("Не профиль", callback_data=f"reject_not_profile:{lead_id}"),
+            ],
+            [
+                InlineKeyboardButton("Далеко", callback_data=f"reject_far:{lead_id}"),
+                InlineKeyboardButton("Бюджет", callback_data=f"reject_budget:{lead_id}"),
+                InlineKeyboardButton("Дедлайн", callback_data=f"reject_deadline:{lead_id}"),
+            ],
+            [
+                InlineKeyboardButton("Дубль", callback_data=f"reject_duplicate:{lead_id}"),
+                InlineKeyboardButton("Другое", callback_data=f"reject_other:{lead_id}"),
             ]
         ]
     )

@@ -12,6 +12,12 @@ def render_lead_card(
     budget_max: Decimal | float | None = None,
     deadline_at: str | None = None,
     score: int | None = None,
+    base_score: int | None = None,
+    learned_adjustment: int | None = None,
+    learned_reason: str | None = None,
+    ai_score: int | None = None,
+    ai_reason: str | None = None,
+    ai_recommended_action: str | None = None,
     is_hot_prospect: bool = False,
 ) -> str:
     lines = [f"[{priority}] {title}"]
@@ -33,6 +39,19 @@ def render_lead_card(
         lines.append(f"Дедлайн: {deadline_at}")
     if score is not None:
         lines.append(f"Скоринг: {score}")
+    if base_score is not None and base_score != score:
+        lines.append(f"Базовый скоринг: {base_score}")
+    if learned_adjustment:
+        sign = "+" if learned_adjustment > 0 else ""
+        lines.append(f"Learning: {sign}{learned_adjustment}")
+        if learned_reason:
+            lines.append(f"Learning-причина: {learned_reason}")
+    if ai_score is not None:
+        lines.append(f"AI-score: {ai_score}")
+        if ai_recommended_action:
+            lines.append(f"AI-рекомендация: {ai_recommended_action}")
+        if ai_reason:
+            lines.append(f"AI: {ai_reason}")
     lines.append(f"Ссылка: {url}")
     return "\n".join(lines)
 

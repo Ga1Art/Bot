@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("setup", "db", "migrate", "api", "bot", "collect", "rescore", "previewscore", "syncsheets", "synchot", "setupsheets", "ordermode", "expire", "doctor", "all")]
+    [ValidateSet("setup", "db", "migrate", "api", "bot", "collect", "rescore", "previewscore", "analyzeai", "syncsheets", "synchot", "setupsheets", "ordermode", "expire", "doctor", "all")]
     [string]$Action = "api",
     [string]$ShareWith = ""
 )
@@ -102,6 +102,12 @@ function Invoke-PreviewScore {
     & $PythonExe -m app.scripts.preview_scores --limit 12 --sort recent
 }
 
+function Invoke-AnalyzeAi {
+    Test-Venv
+    Write-Host "Running AI analysis for active leads..."
+    & $PythonExe -m app.scripts.analyze_ai_leads
+}
+
 function Invoke-Doctor {
     Test-Venv
     Write-Host "Checking first-run readiness..."
@@ -126,6 +132,7 @@ try {
         "collect" { Invoke-Collect }
         "rescore" { Invoke-Rescore }
         "previewscore" { Invoke-PreviewScore }
+        "analyzeai" { Invoke-AnalyzeAi }
         "syncsheets" { Invoke-SyncSheets }
         "synchot" { Invoke-SyncHot }
         "setupsheets" { Invoke-SetupSheets }

@@ -10,6 +10,7 @@ See `docs/order_source_audit.md` for the detailed implementation status and manu
 ## Enabled By Default
 
 - `b2b_center` - public keyword search on B2B-Center commercial procedures.
+- `bidzaar` - public Bidzaar buy requests API for commercial procurement.
 - `fabrikant` - public keyword search on Fabrikant commercial and regulated procedures.
 - `rostender` - public keyword search on Rostender aggregator pages.
 - `synapse` - public keyword search on Synapse tender aggregator pages.
@@ -36,7 +37,7 @@ High-priority sources to connect next:
 - `РТС-тендер` / `B2B-RTS` - regulated and commercial procurement.
 - `Сбербанк-АСТ` - regulated and commercial procurement.
 - `Tender.Pro` - commercial tenders.
-- `Bidzaar` - commercial procurement.
+- `Bidzaar` - commercial procurement; public buy requests are already automated, account/API/export can still improve depth later.
 
 Recommended account/API priority:
 
@@ -44,7 +45,7 @@ Recommended account/API priority:
 2. Roseltorg commercial/corporate sections.
 3. RTS-Tender / B2B-RTS.
 4. Sberbank-AST.
-5. Bidzaar and Tender.Pro after we confirm relevant order volume.
+5. Tender.Pro after we confirm relevant order volume.
 
 Marketplace-style sources to evaluate separately:
 
@@ -74,7 +75,7 @@ Core keywords:
 
 ## Rollout Plan
 
-1. Keep B2B-Center, Fabrikant, Rostender, and Synapse running daily.
+1. Keep B2B-Center, Bidzaar, Fabrikant, Rostender, and Synapse running daily.
 2. Use EIS only where `zakupki.gov.ru` works without TLS failures.
 3. Add one paid aggregator via API/export/email alerts.
 4. Add commercial ETP connectors where open search is stable or an API/account is available.

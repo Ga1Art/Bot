@@ -29,6 +29,17 @@ from app.services.google_sheets_service import GoogleSheetsService
 from app.services.lead_service import LeadService
 
 
+FEEDBACK_ACTIONS = {
+    "accepted": ("in_work", "Менеджер отметил лид как подходящий"),
+    "reject_not_profile": ("rejected", "Отклонено: не наш профиль"),
+    "reject_far": ("rejected", "Отклонено: слишком далеко"),
+    "reject_budget": ("rejected", "Отклонено: бюджет/экономика не подходят"),
+    "reject_deadline": ("rejected", "Отклонено: неудобный или слишком близкий дедлайн"),
+    "reject_duplicate": ("rejected", "Отклонено: дубль"),
+    "reject_other": ("rejected", "Отклонено: другая причина"),
+}
+
+
 def _telegram_actor(update: Update) -> str:
     user = update.effective_user
     if not user:
@@ -51,6 +62,12 @@ def _render_lead_message(lead: LeadRead, include_status: bool = False) -> str:
         budget_max=lead.budget_max,
         deadline_at=lead.deadline_at.strftime("%d.%m.%Y %H:%M") if lead.deadline_at else None,
         score=lead.relevance_score,
+        base_score=lead.base_relevance_score,
+        learned_adjustment=lead.learned_score_adjustment,
+        learned_reason=lead.learned_reason,
+        ai_score=lead.ai_score,
+        ai_reason=lead.ai_reason,
+        ai_recommended_action=lead.ai_recommended_action,
         is_hot_prospect=lead.is_hot_prospect,
     )
     if include_status:
@@ -389,17 +406,36 @@ async def lead_action_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     actor = _telegram_actor(update)
-    comment = None
-    if status == "in_work":
-        comment = f"Taken in work by {actor} via button"
+
+    if status == "ai":
+        with SessionLocal() as db:
+            service = LeadService(db)
+            try:
+                lead, message = service.analyze_with_ai(lead_id=lead_id)
+            except Exception:
+                await query.edit_message_text("Не удалось выполнить AI-анализ лида.")
+                return
+        await query.edit_message_text(f"{message}\n\n{_render_lead_message(lead, include_status=True)}")
+        return
 
     with SessionLocal() as db:
         service = LeadService(db)
         try:
-            lead = service.update_status(
-                lead_id=lead_id,
-                payload=LeadStatusUpdate(status=status, actor=actor, comment=comment),
-            )
+            if status in FEEDBACK_ACTIONS:
+                new_status, comment = FEEDBACK_ACTIONS[status]
+                lead = service.record_feedback(
+                    lead_id=lead_id,
+                    action_type=status,
+                    status=new_status,
+                    actor=actor,
+                    comment=comment,
+                )
+            else:
+                comment = f"Taken in work by {actor} via button" if status == "in_work" else None
+                lead = service.update_status(
+                    lead_id=lead_id,
+                    payload=LeadStatusUpdate(status=status, actor=actor, comment=comment),
+                )
         except Exception:
             await query.edit_message_text("Не удалось обновить статус лида.")
             return

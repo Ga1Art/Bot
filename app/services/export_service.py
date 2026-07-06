@@ -23,6 +23,11 @@ class ExportService:
                 "budget_max",
                 "deadline_at",
                 "relevance_score",
+                "base_relevance_score",
+                "learned_score_adjustment",
+                "ai_score",
+                "ai_recommended_action",
+                "ai_reason",
                 "url",
             ]
         )
@@ -41,6 +46,11 @@ class ExportService:
                     str(lead.budget_max) if lead.budget_max is not None else "",
                     lead.deadline_at.strftime("%d.%m.%Y %H:%M") if lead.deadline_at else "",
                     lead.relevance_score,
+                    lead.base_relevance_score or "",
+                    lead.learned_score_adjustment or "",
+                    lead.ai_score or "",
+                    lead.ai_recommended_action or "",
+                    lead.ai_reason or "",
                     lead.url,
                 ]
             )

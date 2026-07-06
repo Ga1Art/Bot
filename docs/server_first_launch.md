@@ -15,11 +15,13 @@ The API scheduler runs automatically:
 
 - every hour at minute `15`: runs collectors.
 - every hour at minute `25`: syncs Google Sheets if configured.
+- once per day at configured time: runs optional AI lead analysis if configured.
 - every day at `09:00` and `16:00`: sends Telegram digest.
 
 Current active order collectors:
 
 - `b2b_center`: public B2B-Center keyword search.
+- `bidzaar`: public Bidzaar buy requests API.
 - `fabrikant`: public Fabrikant procedure search.
 - `rostender`: public Rostender aggregator keyword search.
 - `synapse`: public Synapse aggregator keyword search.
@@ -43,6 +45,12 @@ Telegram bot commands:
 - `/syncsheets`: sync queue to Google Sheets.
 - `/synchot`: sync hot leads to Google Sheets.
 
+Inline buttons on lead cards:
+
+- `В работу` and `Подходит`: positive feedback for future scoring.
+- `Не профиль`, `Далеко`, `Бюджет`, `Дедлайн`, `Дубль`, `Другое`: rejection reasons used by feedback learning.
+- `AI-анализ`: runs optional AI analysis for this lead when AI is configured.
+
 Lead statuses:
 
 - `new`: imported and not processed.
@@ -60,6 +68,12 @@ Geography rule:
 - Hot leads are not limited to Moscow anymore.
 - Moscow and Moscow region get the highest geography score.
 - Other European Russia regions are included with lower score bonuses as distance/logistics complexity increases.
+
+Feedback and AI rule:
+
+- Feedback learning works without external services after migrations are applied.
+- AI scoring is disabled by default and does not affect the bot unless `ENABLE_AI_SCORING=true` and `GEMINI_API_KEY` are set.
+- AI only adds a bounded score adjustment; the base rule-based score remains visible.
 
 ## 1. Connect To The Server In Termius
 
@@ -129,18 +143,35 @@ ENABLE_CROCUS_COLLECTOR=false
 ENABLE_EXPONET_CITY_COLLECTORS=false
 ENABLE_EXPOCENTR_COLLECTOR=false
 ENABLE_B2B_CENTER_COLLECTOR=true
+ENABLE_BIDZAAR_COLLECTOR=true
 ENABLE_FABRIKANT_COLLECTOR=true
 ENABLE_ROSTENDER_COLLECTOR=true
 ENABLE_SYNAPSE_COLLECTOR=true
 ENABLE_EIS_COLLECTOR=false
 
 TENDER_SEARCH_MAX_PAGES=1
+BIDZAAR_SEARCH_MAX_PAGES=1
 ROSTENDER_SEARCH_MAX_PAGES=1
 SYNAPSE_SEARCH_MAX_PAGES=1
 ROSTENDER_SEARCH_KEYWORDS=выставочный стенд,изготовление выставочного стенда,монтаж выставочного стенда,застройка стенда,оформление стенда,выставочное оборудование
+
+ENABLE_FEEDBACK_LEARNING=true
+FEEDBACK_LEARNING_WEIGHT=8
+FEEDBACK_LEARNING_CAP=24
+
+ENABLE_AI_SCORING=false
+AI_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+AI_SCORE_WEIGHT=15
+AI_MIN_BASE_SCORE=45
+AI_DAILY_ANALYSIS_LIMIT=20
+AI_ANALYSIS_HOUR=23
+AI_ANALYSIS_MINUTE=35
 ```
 
-Recommended first server launch: set `ENABLE_EIS_COLLECTOR=false`. After B2B-Center, Fabrikant, Rostender, and Synapse are stable, enable EIS and check whether the server network can access `zakupki.gov.ru`.
+Recommended first server launch: set `ENABLE_EIS_COLLECTOR=false`. After B2B-Center, Bidzaar, Fabrikant, Rostender, and Synapse are stable, enable EIS and check whether the server network can access `zakupki.gov.ru`.
 
 If Google Sheets is needed:
 
@@ -183,7 +214,7 @@ This creates the database tables.
 docker compose run --rm collector
 ```
 
-Expected result: `b2b_center`, `fabrikant`, `rostender`, and `synapse` should return `success`.
+Expected result: `b2b_center`, `bidzaar`, `fabrikant`, `rostender`, and `synapse` should return `success`.
 
 If EIS is enabled and fails with TLS, disable it in `.env`:
 
@@ -264,6 +295,18 @@ Apply new migrations after code update:
 docker compose run --rm migrate
 ```
 
+Recalculate scores after feedback/scoring changes:
+
+```bash
+docker compose --profile tools run --rm rescore
+```
+
+Run optional AI analysis manually:
+
+```bash
+docker compose --profile tools run --rm ai_analyzer
+```
+
 View logs:
 
 ```bash
@@ -276,6 +319,7 @@ After updating collector logic:
 
 ```bash
 docker compose build
+docker compose run --rm migrate
 docker compose run --rm expire
 docker compose run --rm collector
 docker compose up -d --force-recreate api bot

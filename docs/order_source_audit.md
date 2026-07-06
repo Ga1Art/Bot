@@ -9,6 +9,7 @@ This document tracks real order sources for exhibition stands, temporary constru
 | Source | Status | What We Parse | Notes |
 | --- | --- | --- | --- |
 | B2B-Center | enabled | Public keyword search results from `https://www.b2b-center.ru/market/` | Public keyword search works without login. Extra filters, combined queries, favorites, and templates require registration. |
+| Bidzaar | enabled | Public buy request JSON API from `https://bidzaar.com/app/requests/public/buy` | Public API works without login for buy requests. Current parser keeps only profile orders with actionable deadlines. |
 | Fabrikant | enabled | Public procedure search results from `https://www.fabrikant.ru/procedure/search` | Public HTML search works without login and includes title, organizer, dates, and sometimes budget. |
 | Rostender | enabled | Public keyword search results from `https://rostender.info/extsearch` | Public aggregator HTML works without login. Current parser keeps only profile orders with actionable deadlines. |
 | Synapse | enabled | Public keyword search results from `https://synapsenet.ru/search` | Aggregator over multiple platforms, including B2B, Roseltorg, Fabrikant, OTC, and public procurement. Current parser keeps only profile orders with actionable deadlines. |
@@ -34,7 +35,6 @@ This document tracks real order sources for exhibition stands, temporary constru
 | RTS-Tender / B2B-RTS | high | Register supplier account, create saved searches, check notification/export/API options. | Likely relevant commercial and regulated procedures, but robust access usually needs account/session. |
 | Sberbank-AST | medium-high | Register, check public search and export. | Large procurement platform; pages often require JS/session and may be poor for unauthenticated scraping. |
 | Tender.Pro | medium | Register or provide public search URL examples that return target orders. | Commercial tenders may fit, but source needs endpoint analysis. |
-| Bidzaar | medium | Register company account and check if search results/export are available. | Commercial procurement source, likely requires account. |
 
 ## Latest Public Parsing Check
 
@@ -42,6 +42,7 @@ Checked on 2026-07-03:
 
 | Source | Result |
 | --- | --- |
+| Bidzaar | Works through public JSON API for buy requests. Search is fast and returns relevant commercial orders; no login is required for the initial list. |
 | Rostender | Works through public HTML. Search parameter must be `keywords`, not `keyword`. Best regular mode is one page with a source-specific keyword shortlist; deeper paging is possible but can be slow. |
 | Synapse | Works through public HTML and adds aggregator coverage over B2B, Roseltorg, Fabrikant, OTC, and public procurement. One page is the recommended regular mode. |
 | Bicotender | Public page is accessible, but keyword filtering is unreliable/noisy in unauthenticated HTML. Keep for account/API/export follow-up. |
@@ -186,7 +187,16 @@ Bot integration: yes. If the best path is email alerts, parsed email leads can s
 
 ### Bidzaar
 
-Best integration path: supplier account and official notifications/export/API.
+Current integration path: public buy requests JSON API.
+
+Already automated:
+
+1. Public keyword search over buy requests.
+2. Only `procedureType=1` buy requests are kept.
+3. Closed or same-day/expired deadlines are filtered out.
+4. Region is taken from delivery address or inferred from the title where Bidzaar does not provide an address.
+
+Optional deeper integration path: supplier account and official notifications/export/API.
 
 What to do manually:
 
@@ -238,7 +248,7 @@ Recommended bot features after these integrations:
 2. Roseltorg commercial/corporate sections.
 3. RTS-Tender / B2B-RTS.
 4. Sberbank-AST.
-5. Bidzaar and Tender.Pro after we confirm relevant order volume.
+5. Tender.Pro after we confirm relevant order volume.
 
 ## Manual Watchlist
 
@@ -271,7 +281,7 @@ The parser also applies a profile filter so broad words do not flood the queue w
 
 ## Recommended Next Steps
 
-1. Run the current open-source collectors daily: B2B-Center, Fabrikant, Rostender, Synapse, and EIS where TLS works.
+1. Run the current open-source collectors daily: B2B-Center, Bidzaar, Fabrikant, Rostender, Synapse, and EIS where TLS works.
 2. Choose one paid aggregator trial and prioritize API/export over HTML scraping.
 3. Check Roseltorg and RTS-Tender next because they are more likely to contain commercial/corporate orders than `zakupki.mos.ru`.
 4. Keep event calendars as context only, not as queue leads.

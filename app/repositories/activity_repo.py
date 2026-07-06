@@ -37,7 +37,7 @@ class ActivityRepository:
             )
             .join(Lead, Lead.id == LeadActivity.lead_id)
             .where(Lead.status == "in_work")
-            .where(LeadActivity.action_type == "in_work")
+            .where(LeadActivity.action_type.in_(("in_work", "accepted")))
             .where(LeadActivity.actor == actor)
             .order_by(Lead.updated_at.desc())
             .limit(limit)

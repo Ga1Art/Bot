@@ -1,4 +1,5 @@
 import io
+import asyncio
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -27,6 +28,7 @@ from app.schemas.lead import LeadRead, LeadStatusUpdate
 from app.services.export_service import ExportService
 from app.services.google_sheets_service import GoogleSheetsService
 from app.services.lead_service import LeadService
+from app.services.runner_service import RunnerService
 
 
 FEEDBACK_ACTIONS = {
@@ -359,6 +361,35 @@ async def _sync_leads_to_sheets(
 
     synced = service.sync_leads(leads, range_name=range_name)
     await update.message.reply_text(f"{success_prefix}. Строк выгружено: {synced}", reply_markup=main_menu_keyboard())
+
+
+async def collect_now_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+
+    settings = get_settings()
+    if settings.telegram_chat_id and str(update.effective_chat.id) != str(settings.telegram_chat_id):
+        await update.message.reply_text("Команда ручного сбора доступна только в основном чате бота.")
+        return
+
+    await update.message.reply_text(
+        "Запускаю ручной сбор лидов. Это может занять пару минут...",
+        reply_markup=main_menu_keyboard(),
+    )
+
+    runner = RunnerService()
+    active_collectors = [collector.source_name for collector in runner.collectors]
+    results = await asyncio.to_thread(runner.run_all)
+
+    lines = [
+        "Ручной сбор завершен.",
+        f"Активные источники: {', '.join(active_collectors) or '-'}",
+        "",
+    ]
+    for source_name, found, saved, status in results:
+        lines.append(f"{source_name}: найдено {found}, новых {saved}, статус {status}")
+
+    await update.message.reply_text("\n".join(lines), reply_markup=main_menu_keyboard())
 
 
 async def menu_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

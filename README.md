@@ -102,6 +102,7 @@ Optional values to review before production use:
 - `GEMINI_MODEL`: default is `gemini-2.5-flash`
 - `AI_DAILY_ANALYSIS_LIMIT`: max active leads analyzed by AI per scheduled run
 - `AI_ANALYSIS_HOUR` / `AI_ANALYSIS_MINUTE`: daily AI analysis schedule in Moscow time
+- `MANUAL_COLLECT_TIMEOUT_SECONDS`: max time the Telegram `/collectnow` command waits for a manual order-source collection result
 - `PRIORITY_REGIONS`: default is `Москва,Московская область`
 - `ENABLE_EXPOCENTR_COLLECTOR`: disabled by default until the source is validated in your environment
 - `ENABLE_B2B_CENTER_COLLECTOR`, `ENABLE_BIDZAAR_COLLECTOR`, `ENABLE_FABRIKANT_COLLECTOR`, `ENABLE_ROSTENDER_COLLECTOR`, `ENABLE_SYNAPSE_COLLECTOR`: enabled by default as real order/tender sources

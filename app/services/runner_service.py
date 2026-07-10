@@ -36,18 +36,20 @@ EXPONET_CITY_SOURCES = [
 
 
 class RunnerService:
-    def __init__(self) -> None:
+    def __init__(self, include_event_collectors: bool = True, include_tender_collectors: bool = True) -> None:
         settings = get_settings()
         self.collectors = []
-        if settings.enable_crocus_collector:
+        if include_event_collectors and settings.enable_crocus_collector:
             self.collectors.append(CrocusExpoCollector())
-        if settings.enable_exponet_city_collectors:
+        if include_event_collectors and settings.enable_exponet_city_collectors:
             self.collectors.extend(
                 ExponetCityCollector(city_slug, city_name, region_name)
                 for city_slug, city_name, region_name in EXPONET_CITY_SOURCES
             )
-        if settings.enable_expocentr_collector:
+        if include_event_collectors and settings.enable_expocentr_collector:
             self.collectors.append(ExpocentrCollector())
+        if not include_tender_collectors:
+            return
         if settings.enable_b2b_center_collector:
             self.collectors.append(B2BCenterCollector())
         if settings.enable_bidzaar_collector:

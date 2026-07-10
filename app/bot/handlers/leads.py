@@ -393,9 +393,20 @@ async def collect_now_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
         reply_markup=main_menu_keyboard(),
     )
 
-    runner = RunnerService()
+    runner = RunnerService(include_event_collectors=False)
     active_collectors = [collector.source_name for collector in runner.collectors]
-    results = await asyncio.to_thread(runner.run_all)
+    try:
+        results = await asyncio.wait_for(
+            asyncio.to_thread(runner.run_all),
+            timeout=settings.manual_collect_timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        await update.message.reply_text(
+            "Ручной сбор не уложился в лимит времени и был отпущен в фон.\n"
+            "Проверь /queue через пару минут. Если новые лиды не появились, посмотри логи bot/collector.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
 
     lines = [
         "Ручной сбор завершен.",

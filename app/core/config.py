@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     priority_regions: Annotated[list[str], NoDecode] = ["Москва", "Московская область"]
     digest_hour_morning: int = 9
     digest_hour_evening: int = 16
+    manual_collect_timeout_seconds: int = 300
     tender_search_max_pages: int = 2
     bidzaar_search_max_pages: int = 1
     rostender_search_max_pages: int = 1
@@ -103,8 +104,8 @@ class Settings(BaseSettings):
     enable_feedback_learning: bool = True
     feedback_learning_weight: int = 8
     feedback_learning_cap: int = 24
-    enable_crocus_collector: bool = True
-    enable_exponet_city_collectors: bool = True
+    enable_crocus_collector: bool = False
+    enable_exponet_city_collectors: bool = False
     enable_expocentr_collector: bool = False
     enable_eis_collector: bool = False
     enable_b2b_center_collector: bool = True

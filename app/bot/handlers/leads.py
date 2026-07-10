@@ -51,6 +51,13 @@ def _is_allowed_chat(current_chat_id: int | str, configured_chat_id: str) -> boo
     return not allowed_ids or str(current_chat_id) in allowed_ids
 
 
+def _shorten_text(value: str, limit: int = 220) -> str:
+    compact = " ".join(str(value).split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 3].rstrip() + "..."
+
+
 def _telegram_actor(update: Update) -> str:
     user = update.effective_user
     if not user:
@@ -414,7 +421,8 @@ async def collect_now_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
         "",
     ]
     for source_name, found, saved, status in results:
-        lines.append(f"{source_name}: найдено {found}, новых {saved}, статус {status}")
+        short_status = _shorten_text(status)
+        lines.append(f"{source_name}: найдено {found}, новых {saved}, статус {short_status}")
 
     await update.message.reply_text("\n".join(lines), reply_markup=main_menu_keyboard())
 

@@ -72,7 +72,7 @@ If you want the working queue to contain only real orders/tenders and hide previ
 Values that must be filled by hand in `.env`:
 
 - `TELEGRAM_BOT_TOKEN`: token from BotFather
-- `TELEGRAM_CHAT_ID`: target chat id for notifications and digests
+- `TELEGRAM_CHAT_ID`: target chat id for notifications, digests, and protected admin commands. Multiple ids can be separated with commas; use `/chatid` in Telegram to see the current chat id.
 - `GOOGLE_SHEETS_CREDENTIALS_FILE`: local path to a Google service account JSON file, only if Sheets sync is needed
 - `GOOGLE_SHEETS_SPREADSHEET_ID`: spreadsheet id from the Google Sheets URL, only if Sheets sync is needed
 - `GOOGLE_SHEETS_RANGE`: target range, for example `Queue!A1`

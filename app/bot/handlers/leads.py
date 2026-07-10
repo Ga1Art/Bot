@@ -42,6 +42,15 @@ FEEDBACK_ACTIONS = {
 }
 
 
+def _allowed_chat_ids(raw_chat_id: str) -> set[str]:
+    return {item.strip() for item in raw_chat_id.split(",") if item.strip()}
+
+
+def _is_allowed_chat(current_chat_id: int | str, configured_chat_id: str) -> bool:
+    allowed_ids = _allowed_chat_ids(configured_chat_id)
+    return not allowed_ids or str(current_chat_id) in allowed_ids
+
+
 def _telegram_actor(update: Update) -> str:
     user = update.effective_user
     if not user:
@@ -368,8 +377,15 @@ async def collect_now_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     settings = get_settings()
-    if settings.telegram_chat_id and str(update.effective_chat.id) != str(settings.telegram_chat_id):
-        await update.message.reply_text("Команда ручного сбора доступна только в основном чате бота.")
+    current_chat_id = str(update.effective_chat.id)
+    if not _is_allowed_chat(current_chat_id, settings.telegram_chat_id):
+        await update.message.reply_text(
+            "Команда ручного сбора доступна только в основном чате бота.\n"
+            f"Текущий chat id: {current_chat_id}\n"
+            "Чтобы разрешить этот чат, укажи его в TELEGRAM_CHAT_ID на сервере "
+            "и перезапусти bot-контейнер.",
+            reply_markup=main_menu_keyboard(),
+        )
         return
 
     await update.message.reply_text(
@@ -390,6 +406,23 @@ async def collect_now_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
         lines.append(f"{source_name}: найдено {found}, новых {saved}, статус {status}")
 
     await update.message.reply_text("\n".join(lines), reply_markup=main_menu_keyboard())
+
+
+async def chat_id_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+
+    settings = get_settings()
+    current_chat_id = str(update.effective_chat.id)
+    configured = settings.telegram_chat_id or "не задан"
+    access = "разрешен" if _is_allowed_chat(current_chat_id, settings.telegram_chat_id) else "не разрешен"
+    await update.message.reply_text(
+        "Информация о текущем чате:\n"
+        f"chat id: {current_chat_id}\n"
+        f"TELEGRAM_CHAT_ID: {configured}\n"
+        f"Доступ к /collectnow: {access}",
+        reply_markup=main_menu_keyboard(),
+    )
 
 
 async def menu_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

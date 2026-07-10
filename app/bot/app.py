@@ -2,6 +2,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 
 from app.bot.handlers.common import start_handler
 from app.bot.handlers.leads import (
+    chat_id_handler,
     collect_now_handler,
     deadlines_handler,
     export_handler,
@@ -37,6 +38,7 @@ def build_bot_application() -> Application:
     application.add_handler(CommandHandler("hotexport", hot_export_handler))
     application.add_handler(CommandHandler("syncsheets", sync_sheets_handler))
     application.add_handler(CommandHandler("synchot", sync_hot_sheets_handler))
+    application.add_handler(CommandHandler("chatid", chat_id_handler))
     application.add_handler(CommandHandler("collectnow", collect_now_handler))
     application.add_handler(CallbackQueryHandler(lead_action_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_button_handler))

@@ -76,6 +76,7 @@ class CollectorService:
 
     def run_collector(self, collector_name: str, items: list[LeadCreate]) -> tuple[int, int]:
         run = self.runs.create_started(collector_name)
+        self.db.commit()
         try:
             expired = self.leads.expire_stale_open_leads()
             if expired:
@@ -86,6 +87,8 @@ class CollectorService:
             self.db.commit()
             return found, saved
         except Exception as exc:
+            self.db.rollback()
+            run = self.db.merge(run)
             self.runs.mark_finished(run, status="failed", items_found=0, items_saved=0, error_text=str(exc))
             self.db.commit()
             raise

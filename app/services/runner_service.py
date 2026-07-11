@@ -65,18 +65,20 @@ class RunnerService:
 
     def run_all(self) -> list[tuple[str, int, int, str]]:
         results: list[tuple[str, int, int, str]] = []
-        with SessionLocal() as db:
-            service = CollectorService(db)
-            for collector in self.collectors:
+        for collector in self.collectors:
+            with SessionLocal() as db:
+                service = CollectorService(db)
                 try:
                     items = collector.fetch()
                     found, saved = service.run_collector(collector.source_name, items)
                     results.append((collector.source_name, found, saved, "success"))
                 except Exception as exc:
+                    db.rollback()
                     safe_error = self._safe_error(exc)
                     logger.warning(
                         "Collector failed",
                         extra={"collector": collector.source_name, "error": safe_error},
+                        exc_info=True,
                     )
                     results.append((collector.source_name, 0, 0, f"failed: {safe_error}"))
         return results

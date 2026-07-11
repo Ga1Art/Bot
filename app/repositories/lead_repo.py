@@ -96,6 +96,7 @@ class LeadRepository:
         latest_run = self.db.scalar(
             select(CollectorRun)
             .where(CollectorRun.status.in_(("success", "failed")))
+            .where(CollectorRun.items_saved > 0)
             .order_by(CollectorRun.started_at.desc())
             .limit(1)
         )

@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from telegram import Update
-from telegram.error import RetryAfter, TelegramError
+from telegram.error import RetryAfter, TelegramError, TimedOut
 from telegram.ext import ContextTypes
 
 from app.bot.handlers.common import HELP_TEXT
@@ -122,9 +122,21 @@ async def _reply_lead_cards(update: Update, leads: list[LeadRead], include_statu
             try:
                 await update.message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
                 sent += 1
+            except TimedOut as retry_exc:
+                logger.warning(
+                    "Lead card send timed out after retry; treating as possibly delivered",
+                    extra={"lead_id": str(lead.id), "error": str(retry_exc)},
+                )
+                sent += 1
             except TelegramError as retry_exc:
                 logger.warning("Lead card send failed after retry", extra={"lead_id": str(lead.id), "error": str(retry_exc)})
                 failed += 1
+        except TimedOut as exc:
+            logger.warning(
+                "Lead card send timed out; treating as possibly delivered",
+                extra={"lead_id": str(lead.id), "error": str(exc)},
+            )
+            sent += 1
         except TelegramError as exc:
             logger.warning("Lead card send failed", extra={"lead_id": str(lead.id), "error": str(exc)})
             failed += 1

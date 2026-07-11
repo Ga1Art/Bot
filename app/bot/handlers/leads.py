@@ -109,7 +109,7 @@ async def today_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def new_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     with SessionLocal() as db:
-        leads = LeadService(db).list_leads(status="new", limit=10)
+        leads = LeadService(db).list_leads(status="new")
 
     if not update.message:
         return

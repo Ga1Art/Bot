@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.time import moscow_tomorrow_start_naive
 from app.collectors.tenders.common import has_closed_status
-from app.db.models import Lead
+from app.db.models import CollectorRun, Lead
 from app.normalizers.region import TARGET_EUROPEAN_RUSSIA_REGIONS
 from app.schemas.collector import LeadCreate
 
@@ -88,6 +90,28 @@ class LeadRepository:
             stmt = stmt.order_by(Lead.created_at.desc())
         if limit:
             stmt = stmt.limit(limit)
+        return list(self.db.scalars(stmt))
+
+    def list_latest_collected_new_leads(self, window_minutes: int = 30) -> list[Lead]:
+        latest_run = self.db.scalar(
+            select(CollectorRun)
+            .where(CollectorRun.status.in_(("success", "failed")))
+            .order_by(CollectorRun.started_at.desc())
+            .limit(1)
+        )
+        if latest_run is None:
+            return []
+
+        window_start = latest_run.started_at - timedelta(minutes=max(1, window_minutes))
+        window_end = (latest_run.finished_at or latest_run.started_at) + timedelta(minutes=1)
+        stmt = (
+            select(Lead)
+            .where(Lead.status == "new")
+            .where(self._active_deadline_filter())
+            .where(Lead.created_at >= window_start)
+            .where(Lead.created_at <= window_end)
+            .order_by(Lead.created_at.desc())
+        )
         return list(self.db.scalars(stmt))
 
     def get_by_id(self, lead_id: str) -> Lead | None:

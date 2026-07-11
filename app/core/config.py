@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     digest_hour_morning: int = 9
     digest_hour_evening: int = 16
     manual_collect_timeout_seconds: int = 300
+    recent_collection_window_minutes: int = 30
     tender_search_max_pages: int = 2
     bidzaar_search_max_pages: int = 1
     rostender_search_max_pages: int = 1

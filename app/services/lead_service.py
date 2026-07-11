@@ -42,6 +42,14 @@ class LeadService:
             for item in self.leads.list_leads(status, priority, region, source_type, hot_only, limit)
         ]
 
+    def latest_collected_new_leads(self) -> list[LeadRead]:
+        return [
+            self._to_lead_read(item)
+            for item in self.leads.list_latest_collected_new_leads(
+                window_minutes=self.settings.recent_collection_window_minutes,
+            )
+        ]
+
     def update_status(self, lead_id: str, payload: LeadStatusUpdate) -> LeadRead:
         lead = self.leads.get_by_id(lead_id)
         if not lead:

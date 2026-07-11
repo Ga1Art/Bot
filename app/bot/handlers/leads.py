@@ -109,7 +109,7 @@ async def today_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def new_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     with SessionLocal() as db:
-        leads = LeadService(db).list_leads(status="new", limit=5)
+        leads = LeadService(db).list_leads(status="new", limit=10)
 
     if not update.message:
         return
@@ -118,6 +118,10 @@ async def new_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Новых лидов сейчас нет.", reply_markup=main_menu_keyboard())
         return
 
+    await update.message.reply_text(
+        f"Показываю новые лиды: {len(leads)} шт.",
+        reply_markup=main_menu_keyboard(),
+    )
     for lead in leads:
         await update.message.reply_text(_render_lead_message(lead), reply_markup=lead_actions_keyboard(str(lead.id)))
 

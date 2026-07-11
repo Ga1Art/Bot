@@ -283,7 +283,31 @@ def test_rostender_parse_html_extracts_order() -> None:
     assert items[0].region == "Москва"
     assert items[0].city == "Москва"
     assert str(items[0].budget_max) == "1250000.00"
+    assert items[0].customer_name == "ООО Ромашка"
     assert items[0].deadline_at is not None
+
+
+def test_rostender_parse_html_ignores_masked_customer() -> None:
+    html = """
+    <html>
+      <body>
+        <article class="tender-row row">
+          <span class="tender__number">Тендер №93479904</span>
+          <a href="/region/moskva/93479904-tender-izgotovlenie-vystavochnogo-stenda">
+            Изготовление выставочного стенда
+          </a>
+          <span>Окончание (МСК) 20.07.2099</span>
+          <a href="/region/moskva">Закупки в регионе Москва</a>
+          <span>Организатор ░░░░░░░░░░░ ░░░░░░░░░░░░░</span>
+        </article>
+      </body>
+    </html>
+    """
+
+    items = RostenderCollector(keywords=["выставочный стенд"]).parse_html(html, "выставочный стенд")
+
+    assert len(items) == 1
+    assert items[0].customer_name is None
 
 
 def test_rostender_parse_html_skips_closed_and_today_deadline() -> None:

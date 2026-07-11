@@ -173,10 +173,21 @@ class RostenderCollector(BaseCollector):
         return None
 
     def _extract_customer(self, block_text: str) -> str | None:
-        return first_regex_group(
+        customer = first_regex_group(
             r"(?:Заказчик|Организатор)\s+(.+?)(?:\s+Окончание|\s+Начальная цена|\s+\d{1,2}\.\d{1,2}\.\d{4}|$)",
             block_text,
         )
+        if not customer or self._is_masked_customer(customer):
+            return None
+        return customer
+
+    def _is_masked_customer(self, value: str) -> bool:
+        text = clean_text(value)
+        if not text:
+            return True
+        if re.search(r"[A-Za-zА-Яа-яЁё0-9]", text):
+            return False
+        return bool(re.search(r"[░█▓▒]{3,}", text))
 
     def _iso_to_ru_datetime(self, value: str) -> str:
         match = re.match(r"(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}:\d{2})", value)

@@ -1,7 +1,9 @@
 import io
 import asyncio
+import logging
 
 from telegram import Update
+from telegram.error import RetryAfter, TelegramError
 from telegram.ext import ContextTypes
 
 from app.bot.handlers.common import HELP_TEXT
@@ -30,6 +32,8 @@ from app.services.google_sheets_service import GoogleSheetsService
 from app.services.lead_service import LeadService
 from app.services.runner_service import RunnerService
 
+logger = logging.getLogger(__name__)
+
 
 FEEDBACK_ACTIONS = {
     "accepted": ("in_work", "Менеджер отметил лид как подходящий"),
@@ -40,6 +44,8 @@ FEEDBACK_ACTIONS = {
     "reject_duplicate": ("rejected", "Отклонено: дубль"),
     "reject_other": ("rejected", "Отклонено: другая причина"),
 }
+
+TELEGRAM_MESSAGE_SAFE_LIMIT = 3500
 
 
 def _allowed_chat_ids(raw_chat_id: str) -> set[str]:
@@ -93,6 +99,45 @@ def _render_lead_message(lead: LeadRead, include_status: bool = False) -> str:
     return text
 
 
+def _safe_telegram_message(text: str) -> str:
+    if len(text) <= TELEGRAM_MESSAGE_SAFE_LIMIT:
+        return text
+    suffix = "\n\n...карточка сокращена из-за лимита Telegram. Полная информация доступна по ссылке."
+    return text[: TELEGRAM_MESSAGE_SAFE_LIMIT - len(suffix)].rstrip() + suffix
+
+
+async def _reply_lead_cards(update: Update, leads: list[LeadRead], include_status: bool = False) -> int:
+    if not update.message:
+        return 0
+
+    sent = 0
+    failed = 0
+    for lead in leads:
+        text = _safe_telegram_message(_render_lead_message(lead, include_status=include_status))
+        try:
+            await update.message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
+            sent += 1
+        except RetryAfter as exc:
+            await asyncio.sleep(float(exc.retry_after) + 0.5)
+            try:
+                await update.message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
+                sent += 1
+            except TelegramError as retry_exc:
+                logger.warning("Lead card send failed after retry", extra={"lead_id": str(lead.id), "error": str(retry_exc)})
+                failed += 1
+        except TelegramError as exc:
+            logger.warning("Lead card send failed", extra={"lead_id": str(lead.id), "error": str(exc)})
+            failed += 1
+        await asyncio.sleep(0.15)
+
+    if failed:
+        await update.message.reply_text(
+            f"Не удалось отправить карточек: {failed}. Остальные лиды сохранены в базе.",
+            reply_markup=main_menu_keyboard(),
+        )
+    return sent
+
+
 def _top_dict_lines(title: str, items: dict[str, int], limit: int = 3) -> list[str]:
     if not items:
         return [f"{title}: нет данных"]
@@ -122,8 +167,12 @@ async def new_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         f"Показываю новые лиды из последнего сбора: {len(leads)} шт.",
         reply_markup=main_menu_keyboard(),
     )
-    for lead in leads:
-        await update.message.reply_text(_render_lead_message(lead), reply_markup=lead_actions_keyboard(str(lead.id)))
+    sent = await _reply_lead_cards(update, leads)
+    if sent != len(leads):
+        await update.message.reply_text(
+            f"Отправлено карточек: {sent} из {len(leads)}.",
+            reply_markup=main_menu_keyboard(),
+        )
 
 
 async def queue_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -137,11 +186,7 @@ async def queue_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Очередь пуста.", reply_markup=main_menu_keyboard())
         return
 
-    for lead in leads:
-        await update.message.reply_text(
-            _render_lead_message(lead, include_status=True),
-            reply_markup=lead_actions_keyboard(str(lead.id)),
-        )
+    await _reply_lead_cards(update, leads, include_status=True)
 
 
 async def hot_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -158,11 +203,7 @@ async def hot_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    for lead in leads:
-        await update.message.reply_text(
-            _render_lead_message(lead, include_status=True),
-            reply_markup=lead_actions_keyboard(str(lead.id)),
-        )
+    await _reply_lead_cards(update, leads, include_status=True)
 
 
 async def deadlines_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -238,11 +279,7 @@ async def mine_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"У {actor} сейчас нет лидов в работе.", reply_markup=main_menu_keyboard())
         return
 
-    for lead in leads:
-        await update.message.reply_text(
-            _render_lead_message(lead, include_status=True),
-            reply_markup=lead_actions_keyboard(str(lead.id)),
-        )
+    await _reply_lead_cards(update, leads, include_status=True)
 
 
 async def take_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

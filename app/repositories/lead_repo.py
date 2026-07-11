@@ -11,6 +11,32 @@ from app.schemas.collector import LeadCreate
 
 COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES = ("b2b_center", "bidzaar", "fabrikant", "rostender", "synapse")
 
+LEAD_STRING_LIMITS = {
+    "source_type": 32,
+    "source_name": 128,
+    "external_id": 256,
+    "city": 128,
+    "region": 128,
+    "currency": 16,
+    "customer_name": 256,
+    "event_name": 256,
+    "venue_name": 256,
+    "priority": 8,
+    "ai_recommended_action": 64,
+    "ai_model": 128,
+}
+
+
+def _truncate_value(value: str | None, limit: int) -> str | None:
+    if value is None:
+        return None
+    value = str(value).strip()
+    if not value:
+        return None
+    if len(value) <= limit:
+        return value
+    return value[:limit].rstrip()
+
 
 class LeadRepository:
     def __init__(self, db: Session) -> None:
@@ -173,27 +199,42 @@ class LeadRepository:
         ai_model: str | None = None,
         ai_analyzed_at=None,
     ) -> tuple[Lead, bool]:
-        lead = self.get_by_source_external_id(payload.source_name, payload.external_id)
+        source_type = _truncate_value(payload.source_type, LEAD_STRING_LIMITS["source_type"]) or payload.source_type
+        source_name = _truncate_value(payload.source_name, LEAD_STRING_LIMITS["source_name"]) or payload.source_name
+        external_id = _truncate_value(payload.external_id, LEAD_STRING_LIMITS["external_id"]) or payload.external_id
+        lead = self.get_by_source_external_id(source_name, external_id)
         created = lead is None
+        city = _truncate_value(payload.city, LEAD_STRING_LIMITS["city"])
+        region = _truncate_value(payload.region, LEAD_STRING_LIMITS["region"])
+        currency = _truncate_value(payload.currency, LEAD_STRING_LIMITS["currency"])
+        customer_name = _truncate_value(payload.customer_name, LEAD_STRING_LIMITS["customer_name"])
+        event_name = _truncate_value(payload.event_name, LEAD_STRING_LIMITS["event_name"])
+        venue_name = _truncate_value(payload.venue_name, LEAD_STRING_LIMITS["venue_name"])
+        priority = _truncate_value(priority, LEAD_STRING_LIMITS["priority"]) or priority
+        ai_recommended_action = _truncate_value(
+            ai_recommended_action,
+            LEAD_STRING_LIMITS["ai_recommended_action"],
+        )
+        ai_model = _truncate_value(ai_model, LEAD_STRING_LIMITS["ai_model"])
 
         if lead is None:
             lead = Lead(
-                source_type=payload.source_type,
-                source_name=payload.source_name,
-                external_id=payload.external_id,
+                source_type=source_type,
+                source_name=source_name,
+                external_id=external_id,
                 title=payload.title,
                 description=payload.description,
                 url=payload.url,
                 published_at=payload.published_at,
                 deadline_at=payload.deadline_at,
-                city=payload.city,
-                region=payload.region,
+                city=city,
+                region=region,
                 budget_min=payload.budget_min,
                 budget_max=payload.budget_max,
-                currency=payload.currency,
-                customer_name=payload.customer_name,
-                event_name=payload.event_name,
-                venue_name=payload.venue_name,
+                currency=currency,
+                customer_name=customer_name,
+                event_name=event_name,
+                venue_name=venue_name,
                 keywords_matched=payload.keywords_matched,
                 relevance_score=relevance_score,
                 priority=priority,
@@ -217,14 +258,14 @@ class LeadRepository:
         lead.url = payload.url
         lead.published_at = payload.published_at
         lead.deadline_at = payload.deadline_at
-        lead.city = payload.city
-        lead.region = payload.region
+        lead.city = city
+        lead.region = region
         lead.budget_min = payload.budget_min
         lead.budget_max = payload.budget_max
-        lead.currency = payload.currency
-        lead.customer_name = payload.customer_name
-        lead.event_name = payload.event_name
-        lead.venue_name = payload.venue_name
+        lead.currency = currency
+        lead.customer_name = customer_name
+        lead.event_name = event_name
+        lead.venue_name = venue_name
         lead.keywords_matched = payload.keywords_matched
         lead.relevance_score = relevance_score
         lead.priority = priority

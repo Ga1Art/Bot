@@ -68,6 +68,11 @@ class GoogleSheetsService:
                 "budget_max",
                 "deadline_at",
                 "relevance_score",
+                "fit_score",
+                "business_score",
+                "urgency_score",
+                "logistics_score",
+                "quality_reason",
                 "url",
             ]
         ]
@@ -86,6 +91,11 @@ class GoogleSheetsService:
                     self._format_budget(lead.budget_max),
                     lead.deadline_at.strftime("%d.%m.%Y %H:%M") if lead.deadline_at else "",
                     str(lead.relevance_score),
+                    str(lead.fit_score or ""),
+                    str(lead.business_score or ""),
+                    str(lead.urgency_score or ""),
+                    str(lead.logistics_score or ""),
+                    lead.quality_reason or "",
                     lead.url,
                 ]
             )

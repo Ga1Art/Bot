@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     telegram_notification_chat_id: str = ""
     enable_instant_telegram_notifications: bool = False
     enable_scheduled_morning_collection: bool = True
+    company_profile_text: str = (
+        "Компания проектирует и изготавливает выставочные стенды, временные рекламные конструкции, "
+        "брендированные зоны, POSM, фотозоны, стойки регистрации и оформление мероприятий."
+    )
     min_target_budget: int = 300000
     min_acceptable_budget: int = 100000
     priority_regions: Annotated[list[str], NoDecode] = ["Москва", "Московская область"]

@@ -2,7 +2,7 @@ from app.db.models import Lead
 from app.db.session import SessionLocal
 from app.core.config import get_settings
 from app.schemas.collector import LeadCreate
-from app.scoring.engine import score_lead
+from app.scoring.components import score_components
 from app.services.ai_scoring_service import AiScoringService
 from app.services.feedback_learning_service import FeedbackLearningService
 
@@ -16,11 +16,12 @@ def main() -> None:
         updated = 0
 
         for lead in leads:
-            base_score, _ = score_lead(
+            components = score_components(
                 title=lead.title,
                 description=lead.description,
                 region=lead.region,
                 budget_max=float(lead.budget_max) if lead.budget_max is not None else None,
+                deadline_at=lead.deadline_at,
             )
             payload = LeadCreate(
                 source_type=lead.source_type,
@@ -44,7 +45,7 @@ def main() -> None:
             )
             learning = learning_service.score_adjustment_for(payload)
             ai_adjustment = ai_service.score_adjustment_from_score(lead.ai_score)
-            score = base_score + learning.value + ai_adjustment
+            score = components.base_score + learning.value + ai_adjustment
             priority = (
                 "A"
                 if score >= settings.scoring_priority_a_threshold
@@ -55,10 +56,20 @@ def main() -> None:
             if (
                 lead.relevance_score != score
                 or lead.priority != priority
-                or lead.base_relevance_score != base_score
+                or lead.base_relevance_score != components.base_score
+                or lead.fit_score != components.fit_score
+                or lead.business_score != components.business_score
+                or lead.urgency_score != components.urgency_score
+                or lead.logistics_score != components.logistics_score
+                or lead.quality_reason != components.quality_reason
                 or lead.learned_score_adjustment != learning.value
             ):
-                lead.base_relevance_score = base_score
+                lead.base_relevance_score = components.base_score
+                lead.fit_score = components.fit_score
+                lead.business_score = components.business_score
+                lead.urgency_score = components.urgency_score
+                lead.logistics_score = components.logistics_score
+                lead.quality_reason = components.quality_reason
                 lead.learned_score_adjustment = learning.value
                 lead.learned_reason = learning.reason
                 lead.relevance_score = score

@@ -48,8 +48,9 @@ Telegram bot commands:
 
 Inline buttons on lead cards:
 
-- `В работу` and `Подходит`: positive feedback for future scoring.
+- `В работу`, `Подходит`, `Точно профиль`, `Хороший бюджет`, and `Срочно`: positive feedback for future scoring.
 - `Не профиль`, `Далеко`, `Бюджет`, `Дедлайн`, `Дубль`, `Другое`: rejection reasons used by feedback learning.
+- `Почему?`: shows score components and reasons.
 - `AI-анализ`: runs optional AI analysis for this lead when AI is configured.
 
 Lead statuses:
@@ -74,8 +75,10 @@ Geography rule:
 Feedback and AI rule:
 
 - Feedback learning works without external services after migrations are applied.
+- Quality is split into `fit_score`, `business_score`, `urgency_score`, and `logistics_score`; `relevance_score` remains the main sort score.
+- Cross-source duplicates are hidden from the queue as `context` and kept for audit.
 - AI scoring is disabled by default and does not affect the bot unless `ENABLE_AI_SCORING=true` and `GEMINI_API_KEY` are set.
-- AI only adds a bounded score adjustment; the base rule-based score remains visible.
+- AI runs in scheduled/manual batch mode and only adds a bounded score adjustment; the base rule-based score remains visible.
 
 ## 1. Connect To The Server In Termius
 

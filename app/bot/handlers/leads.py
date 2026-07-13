@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 FEEDBACK_ACTIONS = {
     "accepted": ("in_work", "Менеджер отметил лид как подходящий"),
+    "good_profile": ("new", "Положительный сигнал: точно наш профиль"),
+    "good_budget": ("new", "Положительный сигнал: хороший бюджет"),
+    "good_urgent": ("new", "Положительный сигнал: срочно обработать"),
     "reject_not_profile": ("rejected", "Отклонено: не наш профиль"),
     "reject_far": ("rejected", "Отклонено: слишком далеко"),
     "reject_budget": ("rejected", "Отклонено: бюджет/экономика не подходят"),
@@ -97,6 +100,28 @@ def _render_lead_message(lead: LeadRead, include_status: bool = False) -> str:
     if include_status:
         text = f"{text}\nСтатус: {lead.status}"
     return text
+
+
+def _render_quality_reason(lead: LeadRead) -> str:
+    lines = [
+        "Почему этот лид показан:",
+        f"Итоговый скоринг: {lead.relevance_score} / приоритет {lead.priority}",
+        f"База: {lead.base_relevance_score if lead.base_relevance_score is not None else '-'}",
+        f"Профиль: {lead.fit_score if lead.fit_score is not None else '-'}",
+        f"Бизнес/бюджет: {lead.business_score if lead.business_score is not None else '-'}",
+        f"Срочность: {lead.urgency_score if lead.urgency_score is not None else '-'}",
+        f"Логистика: {lead.logistics_score if lead.logistics_score is not None else '-'}",
+    ]
+    if lead.quality_reason:
+        lines.append(f"Правила: {lead.quality_reason}")
+    if lead.learned_score_adjustment:
+        sign = "+" if lead.learned_score_adjustment > 0 else ""
+        lines.append(f"Learning: {sign}{lead.learned_score_adjustment}; {lead.learned_reason or '-'}")
+    if lead.ai_score is not None:
+        lines.append(f"AI: {lead.ai_score}; {lead.ai_reason or '-'}")
+    if lead.is_duplicate:
+        lines.append(f"Дубль: {lead.duplicate_reason or 'похожий лид уже есть'}")
+    return "\n".join(lines)
 
 
 def _safe_telegram_message(text: str) -> str:
@@ -552,6 +577,19 @@ async def lead_action_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
                 await query.edit_message_text("Не удалось выполнить AI-анализ лида.")
                 return
         await query.edit_message_text(f"{message}\n\n{_render_lead_message(lead, include_status=True)}")
+        return
+
+    if status == "why":
+        with SessionLocal() as db:
+            service = LeadService(db)
+            try:
+                lead = service.get_lead(lead_id)
+            except Exception:
+                await query.edit_message_text("Не удалось найти лид.")
+                return
+        await query.edit_message_text(
+            f"{_render_quality_reason(lead)}\n\n{_render_lead_message(lead, include_status=True)}"
+        )
         return
 
     with SessionLocal() as db:

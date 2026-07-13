@@ -1,4 +1,5 @@
 from datetime import timedelta
+import re
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -38,6 +39,11 @@ def _truncate_value(value: str | None, limit: int) -> str | None:
     if len(value) <= limit:
         return value
     return value[:limit].rstrip()
+
+
+def _fingerprint(value: str) -> set[str]:
+    text = value.lower().replace("ё", "е")
+    return {token for token in re.findall(r"[a-zа-я0-9]{4,}", text) if token not in {"тендер", "закупка", "услуги"}}
 
 
 class LeadRepository:
@@ -208,12 +214,50 @@ class LeadRepository:
         )
         return self.db.scalar(stmt)
 
+    def _find_potential_duplicate(self, payload: LeadCreate) -> Lead | None:
+        if not payload.deadline_at:
+            return None
+        candidates = list(
+            self.db.scalars(
+                select(Lead)
+                .where(Lead.source_name != payload.source_name)
+                .where(Lead.deadline_at == payload.deadline_at)
+                .where(Lead.status.in_(("new", "in_work")))
+                .order_by(Lead.relevance_score.desc(), Lead.created_at.desc())
+                .limit(50)
+            )
+        )
+        if not candidates:
+            return None
+
+        payload_tokens = _fingerprint(f"{payload.title} {payload.description or ''}")
+        if len(payload_tokens) < 3:
+            return None
+        for candidate in candidates:
+            candidate_tokens = _fingerprint(f"{candidate.title} {candidate.description or ''}")
+            overlap = payload_tokens & candidate_tokens
+            overlap_ratio = len(overlap) / max(1, min(len(payload_tokens), len(candidate_tokens)))
+            same_region = bool(payload.region and candidate.region and payload.region.lower() == candidate.region.lower())
+            same_budget = bool(
+                payload.budget_max is not None
+                and candidate.budget_max is not None
+                and abs(float(payload.budget_max) - float(candidate.budget_max)) < 1
+            )
+            if overlap_ratio >= 0.65 or (overlap_ratio >= 0.45 and (same_region or same_budget)):
+                return candidate
+        return None
+
     def upsert(
         self,
         payload: LeadCreate,
         relevance_score: int,
         priority: str,
         base_relevance_score: int | None = None,
+        fit_score: int | None = None,
+        business_score: int | None = None,
+        urgency_score: int | None = None,
+        logistics_score: int | None = None,
+        quality_reason: str | None = None,
         learned_score_adjustment: int = 0,
         learned_reason: str | None = None,
         ai_score: int | None = None,
@@ -243,6 +287,7 @@ class LeadRepository:
         ai_model = _truncate_value(ai_model, LEAD_STRING_LIMITS["ai_model"])
 
         if lead is None:
+            duplicate = self._find_potential_duplicate(payload)
             lead = Lead(
                 source_type=source_type,
                 source_name=source_name,
@@ -264,6 +309,11 @@ class LeadRepository:
                 relevance_score=relevance_score,
                 priority=priority,
                 base_relevance_score=base_relevance_score,
+                fit_score=fit_score,
+                business_score=business_score,
+                urgency_score=urgency_score,
+                logistics_score=logistics_score,
+                quality_reason=quality_reason,
                 learned_score_adjustment=learned_score_adjustment,
                 learned_reason=learned_reason,
                 ai_score=ai_score,
@@ -273,6 +323,10 @@ class LeadRepository:
                 ai_risk_tags=ai_risk_tags,
                 ai_model=ai_model,
                 ai_analyzed_at=ai_analyzed_at,
+                status="context" if duplicate else "new",
+                is_duplicate=duplicate is not None,
+                duplicate_of_id=duplicate.id if duplicate else None,
+                duplicate_reason="Похожий заказ уже найден в другом источнике" if duplicate else None,
                 raw_payload=payload.raw_payload,
             )
             self.db.add(lead)
@@ -295,15 +349,21 @@ class LeadRepository:
         lead.relevance_score = relevance_score
         lead.priority = priority
         lead.base_relevance_score = base_relevance_score
+        lead.fit_score = fit_score
+        lead.business_score = business_score
+        lead.urgency_score = urgency_score
+        lead.logistics_score = logistics_score
+        lead.quality_reason = quality_reason
         lead.learned_score_adjustment = learned_score_adjustment
         lead.learned_reason = learned_reason
-        lead.ai_score = ai_score
-        lead.ai_reason = ai_reason
-        lead.ai_recommended_action = ai_recommended_action
-        lead.ai_tags = ai_tags
-        lead.ai_risk_tags = ai_risk_tags
-        lead.ai_model = ai_model
-        lead.ai_analyzed_at = ai_analyzed_at
+        if ai_score is not None or ai_analyzed_at is not None:
+            lead.ai_score = ai_score
+            lead.ai_reason = ai_reason
+            lead.ai_recommended_action = ai_recommended_action
+            lead.ai_tags = ai_tags
+            lead.ai_risk_tags = ai_risk_tags
+            lead.ai_model = ai_model
+            lead.ai_analyzed_at = ai_analyzed_at
         lead.raw_payload = payload.raw_payload
         return lead, created
 

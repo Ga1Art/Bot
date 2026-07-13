@@ -10,7 +10,7 @@ from app.db.models import Lead, LeadActivity
 from app.schemas.collector import LeadCreate
 
 
-ACCEPTED_ACTIONS = {"in_work", "accepted", "contacted", "won"}
+ACCEPTED_ACTIONS = {"in_work", "accepted", "contacted", "won", "good_profile", "good_budget", "good_urgent"}
 REJECTED_ACTIONS = {
     "rejected",
     "reject_not_profile",

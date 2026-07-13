@@ -50,6 +50,12 @@ class LeadService:
             )
         ]
 
+    def get_lead(self, lead_id: str) -> LeadRead:
+        lead = self.leads.get_by_id(lead_id)
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        return self._to_lead_read(lead)
+
     def update_status(self, lead_id: str, payload: LeadStatusUpdate) -> LeadRead:
         lead = self.leads.get_by_id(lead_id)
         if not lead:

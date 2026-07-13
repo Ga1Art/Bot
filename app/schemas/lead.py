@@ -20,6 +20,11 @@ class LeadRead(BaseModel):
     status: str
     relevance_score: int
     base_relevance_score: int | None = None
+    fit_score: int | None = None
+    business_score: int | None = None
+    urgency_score: int | None = None
+    logistics_score: int | None = None
+    quality_reason: str | None = None
     learned_score_adjustment: int = 0
     learned_reason: str | None = None
     ai_score: int | None = None
@@ -29,6 +34,9 @@ class LeadRead(BaseModel):
     ai_risk_tags: list[str] | None = None
     ai_model: str | None = None
     ai_analyzed_at: datetime | None = None
+    is_duplicate: bool = False
+    duplicate_of_id: UUID | None = None
+    duplicate_reason: str | None = None
     is_hot_prospect: bool = False
     published_at: datetime | None = None
     deadline_at: datetime | None = None

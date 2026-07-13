@@ -205,10 +205,15 @@ If there are too many priority `A` leads, first lower `SCORING_WHITELIST_WEIGHT`
 The base scoring rules remain the source of truth. Manager feedback and AI only add bounded adjustments on top of the base score.
 
 - Feedback learning is enabled by `ENABLE_FEEDBACK_LEARNING=true` and does not require external services.
-- Telegram lead buttons `Подходит`, `Не профиль`, `Далеко`, `Бюджет`, `Дедлайн`, `Дубль`, `Другое` are saved as training signals.
+- Telegram lead buttons `Подходит`, `Точно профиль`, `Хороший бюджет`, `Срочно`, `Не профиль`, `Далеко`, `Бюджет`, `Дедлайн`, `Дубль`, `Другое` are saved as training signals.
+- Lead cards include `Почему?`, which explains rule-based score factors, component scores, feedback learning, duplicate status, and AI reasoning when available.
+- Lead quality is stored as components: `fit_score`, `business_score`, `urgency_score`, `logistics_score`, plus `quality_reason`. The old `relevance_score` remains the main sorting score.
+- Cross-source duplicates are conservatively marked as `context` with `is_duplicate=true` and `duplicate_reason`, instead of being shown as separate queue items.
 - `rescore` recalculates existing leads using current scoring settings and accumulated feedback.
 - Optional AI scoring is enabled only when `ENABLE_AI_SCORING=true` and `GEMINI_API_KEY` are set.
 - AI analysis stores `ai_score`, explanation, tags, risks, and a recommended action, but it is capped by `AI_SCORE_WEIGHT` so it cannot fully override rule-based scoring.
+- AI runs in scheduled/manual batch mode, not during collector ingest, so source collection stays fast even if Gemini is slow or unavailable.
+- `COMPANY_PROFILE_TEXT` can tune the AI profile without code changes.
 - The scheduler runs optional AI analysis once per day at `AI_ANALYSIS_HOUR:AI_ANALYSIS_MINUTE`; if AI is disabled, the job exits immediately.
 
 ## First build targets

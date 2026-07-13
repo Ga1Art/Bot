@@ -53,6 +53,14 @@ def lead_actions_keyboard(lead_id: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton("AI-анализ", callback_data=f"ai:{lead_id}"),
+                InlineKeyboardButton("Почему?", callback_data=f"why:{lead_id}"),
+            ],
+            [
+                InlineKeyboardButton("Точно профиль", callback_data=f"good_profile:{lead_id}"),
+                InlineKeyboardButton("Хороший бюджет", callback_data=f"good_budget:{lead_id}"),
+            ],
+            [
+                InlineKeyboardButton("Срочно", callback_data=f"good_urgent:{lead_id}"),
                 InlineKeyboardButton("Не профиль", callback_data=f"reject_not_profile:{lead_id}"),
             ],
             [

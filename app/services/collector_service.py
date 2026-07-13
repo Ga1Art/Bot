@@ -7,9 +7,8 @@ from app.repositories.collector_run_repo import CollectorRunRepository
 from app.repositories.activity_repo import ActivityRepository
 from app.repositories.lead_repo import LeadRepository
 from app.schemas.collector import LeadCreate
-from app.scoring.engine import score_lead
+from app.scoring.components import score_components
 from app.core.config import get_settings
-from app.services.ai_scoring_service import AiScoringService
 from app.services.feedback_learning_service import FeedbackLearningService
 from app.services.telegram_service import TelegramService
 
@@ -23,7 +22,6 @@ class CollectorService:
         self.activities = ActivityRepository(db)
         self.runs = CollectorRunRepository(db)
         self.telegram = TelegramService()
-        self.ai_scoring = AiScoringService()
         self.feedback_learning = FeedbackLearningService(db)
         self.settings = get_settings()
 
@@ -33,31 +31,28 @@ class CollectorService:
         created_leads: list[Lead] = []
 
         for item in items:
-            base_score, _ = score_lead(
+            components = score_components(
                 title=item.title,
                 description=item.description,
                 region=item.region,
                 budget_max=float(item.budget_max) if item.budget_max is not None else None,
+                deadline_at=item.deadline_at,
             )
             learning = self.feedback_learning.score_adjustment_for(item)
-            ai_assessment = self.ai_scoring.assess(item, base_score=base_score + learning.value)
-            ai_adjustment = self.ai_scoring.score_adjustment(ai_assessment)
-            score = base_score + learning.value + ai_adjustment
+            score = components.base_score + learning.value
             priority = self._priority_from_score(score)
             lead, created = self.leads.upsert(
                 item,
                 relevance_score=score,
                 priority=priority,
-                base_relevance_score=base_score,
+                base_relevance_score=components.base_score,
+                fit_score=components.fit_score,
+                business_score=components.business_score,
+                urgency_score=components.urgency_score,
+                logistics_score=components.logistics_score,
+                quality_reason=components.quality_reason,
                 learned_score_adjustment=learning.value,
                 learned_reason=learning.reason,
-                ai_score=ai_assessment.score if ai_assessment else None,
-                ai_reason=ai_assessment.reason if ai_assessment else None,
-                ai_recommended_action=ai_assessment.recommended_action if ai_assessment else None,
-                ai_tags=ai_assessment.tags if ai_assessment else None,
-                ai_risk_tags=ai_assessment.risk_tags if ai_assessment else None,
-                ai_model=ai_assessment.model if ai_assessment else None,
-                ai_analyzed_at=ai_assessment.analyzed_at if ai_assessment else None,
             )
             if created:
                 self.db.flush()

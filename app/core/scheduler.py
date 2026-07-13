@@ -7,6 +7,7 @@ from app.db.models import Lead
 from app.db.session import SessionLocal
 from app.digest.sender import send_digest
 from app.repositories.lead_repo import LeadRepository
+from app.services.ai_scoring_service import AiScoringService
 from app.services.lead_service import LeadService
 from app.services.runner_service import RunnerService
 from app.services.sync_service import SyncService
@@ -39,7 +40,8 @@ def expire_stale_leads_job() -> None:
 
 def analyze_ai_leads_job() -> None:
     settings = get_settings()
-    if not settings.enable_ai_scoring or not settings.openai_api_key:
+    ai_scoring = AiScoringService()
+    if not ai_scoring.is_enabled():
         return
     with SessionLocal() as db:
         leads = list(

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime
 from decimal import Decimal
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from app.collectors.base import BaseCollector
@@ -193,11 +193,8 @@ class BidzaarCollector(BaseCollector):
 
     def _item_url(self, item: dict) -> str:
         number = str(item.get("number") or "")
-        slug = re.sub(r"[^a-zA-Z0-9а-яА-ЯёЁ]+", "-", str(item.get("name") or "").lower()).strip("-")
-        if number and slug:
-            return f"{self.base_url}/app/requests/public/buy/{number}--{slug}"
         if number:
-            return f"{self.base_url}/app/requests/public/buy/{number}"
+            return f"{self.base_url}/app/requests/public/buy?{urlencode({'search': number})}"
         return f"{self.base_url}/app/requests/public/buy"
 
     def _dedupe(self, items: list[LeadCreate]) -> list[LeadCreate]:

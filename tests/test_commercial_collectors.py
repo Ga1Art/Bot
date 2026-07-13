@@ -215,6 +215,7 @@ def test_bidzaar_parse_payload_extracts_order() -> None:
     assert len(items) == 1
     assert items[0].source_name == "bidzaar"
     assert items[0].external_id == "019f220e-abaa-749e-9dbc-34cc87991421"
+    assert items[0].url == "https://bidzaar.com/app/requests/public/buy?search=348-878"
     assert "оформлению выставочных зон" in items[0].title
     assert items[0].customer_name == "НИКАМЕД"
     assert items[0].city == "Павловская Слобода"

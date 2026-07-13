@@ -19,6 +19,12 @@ def run_collectors_job() -> None:
     RunnerService().run_all()
 
 
+def morning_collection_digest_job() -> None:
+    expire_stale_leads_job()
+    RunnerService().run_all()
+    send_digest()
+
+
 def sync_google_sheets_job() -> None:
     SyncService().sync_queue_to_google_sheets()
 
@@ -53,10 +59,17 @@ def analyze_ai_leads_job() -> None:
                 logger.warning("Scheduled AI analysis failed", extra={"lead_id": str(lead.id), "error": str(exc)[:300]})
 
 
-scheduler.add_job(run_collectors_job, "cron", minute="15", id="collectors_cycle")
 scheduler.add_job(expire_stale_leads_job, "cron", minute="5", id="expire_stale_leads")
 scheduler.add_job(sync_google_sheets_job, "cron", minute="25", id="google_sheets_sync")
 settings = get_settings()
+if settings.enable_scheduled_morning_collection:
+    scheduler.add_job(
+        morning_collection_digest_job,
+        "cron",
+        hour=settings.digest_hour_morning,
+        minute=0,
+        id="morning_collection_digest",
+    )
 scheduler.add_job(
     analyze_ai_leads_job,
     "cron",
@@ -64,5 +77,3 @@ scheduler.add_job(
     minute=settings.ai_analysis_minute,
     id="ai_leads_analysis",
 )
-scheduler.add_job(send_digest, "cron", hour=9, minute=0, id="morning_digest")
-scheduler.add_job(send_digest, "cron", hour=16, minute=0, id="evening_digest")

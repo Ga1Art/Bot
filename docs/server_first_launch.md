@@ -13,10 +13,11 @@ Lead Radar has four runtime parts:
 
 The API scheduler runs automatically:
 
-- every hour at minute `15`: runs collectors.
+- every day at `DIGEST_HOUR_MORNING:00`: runs collectors once and sends the morning digest to the notification chat.
+- every hour at minute `5`: moves expired unprocessed queue leads to `context`.
 - every hour at minute `25`: syncs Google Sheets if configured.
 - once per day at configured time: runs optional AI lead analysis if configured.
-- every day at `09:00` and `16:00`: sends Telegram digest.
+- no automatic daytime collection is run; use `/collectnow` in Telegram when you want to refresh leads manually.
 
 Current active order collectors:
 
@@ -138,7 +139,10 @@ APP_PORT=8010
 DATABASE_URL=postgresql://lead_radar:lead_radar@db:5432/lead_radar
 
 TELEGRAM_BOT_TOKEN=<token from BotFather>
-TELEGRAM_CHAT_ID=<target chat id>
+TELEGRAM_CHAT_ID=<allowed admin chat id or ids>
+TELEGRAM_NOTIFICATION_CHAT_ID=<common group chat id for morning digest>
+ENABLE_INSTANT_TELEGRAM_NOTIFICATIONS=false
+ENABLE_SCHEDULED_MORNING_COLLECTION=true
 
 ENABLE_CROCUS_COLLECTOR=false
 ENABLE_EXPONET_CITY_COLLECTORS=false

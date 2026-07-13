@@ -72,7 +72,8 @@ If you want the working queue to contain only real orders/tenders and hide previ
 Values that must be filled by hand in `.env`:
 
 - `TELEGRAM_BOT_TOKEN`: token from BotFather
-- `TELEGRAM_CHAT_ID`: target chat id for notifications, digests, and protected admin commands. Multiple ids can be separated with commas; use `/chatid` in Telegram to see the current chat id.
+- `TELEGRAM_CHAT_ID`: allowed chat id for protected admin commands. Multiple ids can be separated with commas; use `/chatid` in Telegram to see the current chat id.
+- `TELEGRAM_NOTIFICATION_CHAT_ID`: target group chat id for the morning digest. If empty, the first id from `TELEGRAM_CHAT_ID` is used.
 - `GOOGLE_SHEETS_CREDENTIALS_FILE`: local path to a Google service account JSON file, only if Sheets sync is needed
 - `GOOGLE_SHEETS_SPREADSHEET_ID`: spreadsheet id from the Google Sheets URL, only if Sheets sync is needed
 - `GOOGLE_SHEETS_RANGE`: target range, for example `Queue!A1`
@@ -102,6 +103,8 @@ Optional values to review before production use:
 - `GEMINI_MODEL`: default is `gemini-2.5-flash`
 - `AI_DAILY_ANALYSIS_LIMIT`: max active leads analyzed by AI per scheduled run
 - `AI_ANALYSIS_HOUR` / `AI_ANALYSIS_MINUTE`: daily AI analysis schedule in Moscow time
+- `ENABLE_SCHEDULED_MORNING_COLLECTION`: runs one automatic morning collection and digest when `true`; daytime collection stays manual via `/collectnow`
+- `ENABLE_INSTANT_TELEGRAM_NOTIFICATIONS`: sends every new A/B lead immediately when `true`; default `false` to avoid Telegram spam
 - `MANUAL_COLLECT_TIMEOUT_SECONDS`: max time the Telegram `/collectnow` command waits for a manual order-source collection result
 - `RECENT_COLLECTION_WINDOW_MINUTES`: grouping window used by the Telegram `Новые` button around the latest collection run that saved leads
 - `PRIORITY_REGIONS`: default is `Москва,Московская область`
@@ -213,8 +216,8 @@ The base scoring rules remain the source of truth. Manager feedback and AI only 
 - Alembic migrations are included
 - Event calendar collectors are available but disabled by default.
 - Active order collectors target B2B-Center, Bidzaar, Fabrikant, Rostender, Synapse, and optionally EIS on `zakupki.gov.ru`
-- New `A/B` leads are sent to Telegram once
-- Scheduler runs collectors every hour at minute `15`
+- New `A/B` leads are not sent instantly by default; use the morning digest or `/collectnow`
+- Scheduler runs one morning collection and digest at `DIGEST_HOUR_MORNING:00`
 - Scheduler moves expired unprocessed `new` leads out of the queue every hour at minute `5`; `in_work` leads are kept.
 - Scheduler syncs Google Sheets every hour at minute `25` when configured
 - Scheduler runs optional AI analysis once per day when configured

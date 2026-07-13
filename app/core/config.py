@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     database_url: str
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_notification_chat_id: str = ""
+    enable_instant_telegram_notifications: bool = False
+    enable_scheduled_morning_collection: bool = True
     min_target_budget: int = 300000
     min_acceptable_budget: int = 100000
     priority_regions: Annotated[list[str], NoDecode] = ["Москва", "Московская область"]

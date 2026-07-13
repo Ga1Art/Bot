@@ -12,11 +12,18 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def notification_chat_id() -> str:
+    configured = settings.telegram_notification_chat_id or settings.telegram_chat_id
+    return configured.split(",", maxsplit=1)[0].strip()
+
+
 class TelegramService:
     def is_configured(self) -> bool:
-        return bool(settings.telegram_bot_token and settings.telegram_chat_id)
+        return bool(settings.telegram_bot_token and notification_chat_id())
 
     def notify_new_priority_leads(self, leads: list[Lead]) -> None:
+        if not settings.enable_instant_telegram_notifications:
+            return
         if not self.is_configured():
             logger.info("Telegram is not configured; skipping lead notifications")
             return
@@ -43,7 +50,7 @@ class TelegramService:
                 response = requests.post(
                     f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
                     json={
-                        "chat_id": settings.telegram_chat_id,
+                        "chat_id": notification_chat_id(),
                         "text": text,
                         "reply_markup": lead_actions_keyboard(str(lead.id)).to_dict(),
                     },

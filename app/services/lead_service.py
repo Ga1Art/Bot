@@ -179,8 +179,8 @@ class LeadService:
             ],
         )
 
-    def review_queue(self, limit: int = 20) -> list[LeadRead]:
-        return [self._to_lead_read(item) for item in self.leads.get_review_queue(limit=limit)]
+    def review_queue(self, limit: int = 20, offset: int = 0) -> list[LeadRead]:
+        return [self._to_lead_read(item) for item in self.leads.get_review_queue(limit=limit, offset=offset)]
 
     def hot_prospects(self, limit: int = 20) -> list[LeadRead]:
         return [self._to_lead_read(item) for item in self.leads.get_hot_prospects(limit=limit)]

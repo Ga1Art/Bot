@@ -74,3 +74,9 @@ def lead_actions_keyboard(lead_id: str) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+def queue_more_keyboard(next_offset: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Показать еще", callback_data=f"queue_more:{next_offset}")]]
+    )

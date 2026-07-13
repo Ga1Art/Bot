@@ -143,12 +143,13 @@ class LeadRepository:
         )
         return list(self.db.scalars(stmt))
 
-    def get_review_queue(self, limit: int = 20) -> list[Lead]:
+    def get_review_queue(self, limit: int = 20, offset: int = 0) -> list[Lead]:
         stmt = (
             select(Lead)
             .where(Lead.status.in_(("new", "in_work")))
             .where(self._active_deadline_filter())
             .order_by(Lead.priority.asc(), Lead.relevance_score.desc(), Lead.created_at.desc())
+            .offset(max(0, offset))
             .limit(limit)
         )
         return list(self.db.scalars(stmt))

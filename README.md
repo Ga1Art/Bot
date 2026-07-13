@@ -238,6 +238,7 @@ The base scoring rules remain the source of truth. Manager feedback and AI only 
 - API hot prospects Google Sheets sync: `POST /leads/sync-sheets/hot`
 - Bot command `/new` shows the latest unprocessed leads
 - Bot command `/queue` shows the current working queue
+- The Telegram `Очередь` button shows 10 leads at a time and offers `Показать еще` until the queue ends
 - Bot command `/hot` shows only hot `A/B` leads from priority regions
 - Bot command `/deadlines` shows ближайшие дедлайны по горячим лидам
 - Bot command `/summary` shows a compact hot leads summary with statuses, top sources, and nearest deadlines

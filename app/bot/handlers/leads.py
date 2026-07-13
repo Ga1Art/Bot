@@ -22,6 +22,7 @@ from app.bot.keyboards import (
     MENU_BUTTONS,
     lead_actions_keyboard,
     main_menu_keyboard,
+    queue_more_keyboard,
 )
 from app.bot.templates import render_lead_card
 from app.core.config import get_settings
@@ -49,6 +50,7 @@ FEEDBACK_ACTIONS = {
 }
 
 TELEGRAM_MESSAGE_SAFE_LIMIT = 3500
+QUEUE_PAGE_SIZE = 10
 
 
 def _allowed_chat_ids(raw_chat_id: str) -> set[str]:
@@ -132,7 +134,8 @@ def _safe_telegram_message(text: str) -> str:
 
 
 async def _reply_lead_cards(update: Update, leads: list[LeadRead], include_status: bool = False) -> int:
-    if not update.message:
+    message = update.effective_message
+    if not message:
         return 0
 
     sent = 0
@@ -140,12 +143,12 @@ async def _reply_lead_cards(update: Update, leads: list[LeadRead], include_statu
     for lead in leads:
         text = _safe_telegram_message(_render_lead_message(lead, include_status=include_status))
         try:
-            await update.message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
+            await message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
             sent += 1
         except RetryAfter as exc:
             await asyncio.sleep(float(exc.retry_after) + 0.5)
             try:
-                await update.message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
+                await message.reply_text(text, reply_markup=lead_actions_keyboard(str(lead.id)))
                 sent += 1
             except TimedOut as retry_exc:
                 logger.warning(
@@ -168,7 +171,7 @@ async def _reply_lead_cards(update: Update, leads: list[LeadRead], include_statu
         await asyncio.sleep(0.15)
 
     if failed:
-        await update.message.reply_text(
+        await message.reply_text(
             f"Не удалось отправить карточек: {failed}. Остальные лиды сохранены в базе.",
             reply_markup=main_menu_keyboard(),
         )
@@ -212,18 +215,38 @@ async def new_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-async def queue_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+async def _show_queue_page(update: Update, offset: int = 0) -> None:
+    page_size = QUEUE_PAGE_SIZE
     with SessionLocal() as db:
-        leads = LeadService(db).review_queue(limit=10)
+        leads = LeadService(db).review_queue(limit=page_size + 1, offset=offset)
 
-    if not update.message:
+    message = update.effective_message
+    if not message:
         return
 
     if not leads:
-        await update.message.reply_text("Очередь пуста.", reply_markup=main_menu_keyboard())
+        empty_text = "Очередь пуста." if offset == 0 else "Больше лидов в очереди нет."
+        await message.reply_text(empty_text, reply_markup=main_menu_keyboard())
         return
 
-    await _reply_lead_cards(update, leads, include_status=True)
+    has_more = len(leads) > page_size
+    page_leads = leads[:page_size]
+    await message.reply_text(
+        f"Очередь: показываю {offset + 1}-{offset + len(page_leads)}.",
+        reply_markup=main_menu_keyboard(),
+    )
+    await _reply_lead_cards(update, page_leads, include_status=True)
+    if has_more:
+        await message.reply_text(
+            "Есть еще лиды в очереди.",
+            reply_markup=queue_more_keyboard(offset + page_size),
+        )
+    else:
+        await message.reply_text("Это конец очереди.", reply_markup=main_menu_keyboard())
+
+
+async def queue_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    await _show_queue_page(update, offset=0)
 
 
 async def hot_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -567,6 +590,16 @@ async def lead_action_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     actor = _telegram_actor(update)
+
+    if status == "queue_more":
+        try:
+            offset = int(lead_id)
+        except ValueError:
+            await query.edit_message_text("Не удалось открыть следующую страницу очереди.")
+            return
+        await query.edit_message_text("Загружаю следующую страницу очереди...")
+        await _show_queue_page(update, offset=offset)
+        return
 
     if status == "ai":
         with SessionLocal() as db:

@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.db.models import Lead
 from app.db.session import SessionLocal
 from app.digest.sender import send_digest
+from app.repositories.lead_repo import LeadRepository
 from app.services.lead_service import LeadService
 from app.services.runner_service import RunnerService
 from app.services.sync_service import SyncService
@@ -20,6 +21,14 @@ def run_collectors_job() -> None:
 
 def sync_google_sheets_job() -> None:
     SyncService().sync_queue_to_google_sheets()
+
+
+def expire_stale_leads_job() -> None:
+    with SessionLocal() as db:
+        expired = LeadRepository(db).expire_stale_open_leads()
+        db.commit()
+    if expired:
+        logger.info("Expired stale queue leads", extra={"expired": expired})
 
 
 def analyze_ai_leads_job() -> None:
@@ -45,6 +54,7 @@ def analyze_ai_leads_job() -> None:
 
 
 scheduler.add_job(run_collectors_job, "cron", minute="15", id="collectors_cycle")
+scheduler.add_job(expire_stale_leads_job, "cron", minute="5", id="expire_stale_leads")
 scheduler.add_job(sync_google_sheets_job, "cron", minute="25", id="google_sheets_sync")
 settings = get_settings()
 scheduler.add_job(

@@ -151,7 +151,7 @@ class LeadRepository:
         stale_leads = list(
             self.db.scalars(
                 select(Lead)
-                .where(Lead.status.in_(("new", "in_work")))
+                .where(Lead.status == "new")
                 .where(
                     or_(
                         Lead.deadline_at < moscow_tomorrow_start_naive(),
@@ -179,7 +179,7 @@ class LeadRepository:
         commercial_open_leads = list(
             self.db.scalars(
                 select(Lead)
-                .where(Lead.status.in_(("new", "in_work")))
+                .where(Lead.status == "new")
                 .where(Lead.source_name.in_(COMMERCIAL_SOURCES_WITH_REQUIRED_DEADLINES))
             )
         )

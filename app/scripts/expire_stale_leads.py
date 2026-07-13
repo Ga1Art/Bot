@@ -6,7 +6,7 @@ def main() -> None:
     with SessionLocal() as db:
         expired = LeadRepository(db).expire_stale_open_leads()
         db.commit()
-    print(f"Expired stale open leads: {expired}")
+    print(f"Expired stale queue leads: {expired}")
 
 
 if __name__ == "__main__":

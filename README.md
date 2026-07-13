@@ -215,6 +215,7 @@ The base scoring rules remain the source of truth. Manager feedback and AI only 
 - Active order collectors target B2B-Center, Bidzaar, Fabrikant, Rostender, Synapse, and optionally EIS on `zakupki.gov.ru`
 - New `A/B` leads are sent to Telegram once
 - Scheduler runs collectors every hour at minute `15`
+- Scheduler moves expired unprocessed `new` leads out of the queue every hour at minute `5`; `in_work` leads are kept.
 - Scheduler syncs Google Sheets every hour at minute `25` when configured
 - Scheduler runs optional AI analysis once per day when configured
 - `ENABLE_EIS_COLLECTOR=false` is recommended on networks where `zakupki.gov.ru` fails at TLS level

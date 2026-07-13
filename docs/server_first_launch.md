@@ -61,7 +61,8 @@ Lead statuses:
 Deadline rule:
 
 - Commercial sources are shown only when the application deadline is at least tomorrow in Moscow time.
-- Leads with deadlines today, expired deadlines, missing commercial-source deadlines, or closed statuses are moved to `context` by the `expire` command.
+- Unprocessed `new` leads with deadlines today, expired deadlines, missing commercial-source deadlines, or closed statuses are moved to `context` automatically and by the `expire` command.
+- Leads already taken/accepted into `in_work` are kept even after the deadline.
 
 Geography rule:
 
@@ -283,7 +284,7 @@ Run collectors manually:
 docker compose run --rm collector
 ```
 
-Move expired or closed open leads to `context`:
+Move expired or closed unprocessed queue leads to `context`:
 
 ```bash
 docker compose run --rm expire
